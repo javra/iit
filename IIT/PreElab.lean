@@ -62,7 +62,7 @@ partial def preElabViewsAux (views : Array InductiveView) (i : Nat) : TermElabM 
   if (i >= views.size) then return #[]
   let hr ← elabSingleHeader views[i]
   let type ← mkForallFVars hr.params hr.type
-  withLCtx (mkLocalDecl hr.lctx "Con" "Con" (mkSort levelZero)) hr.localInsts do
+  withLCtx hr.lctx hr.localInsts do
     let ctors := [] --← elabCtors indFVar params r
     let indType := { name := hr.view.declName, type := type, ctors := ctors : InductiveType }
     withLocalDeclD hr.view.declName type (λ _ => do let its ← preElabViewsAux views (i + 1)
