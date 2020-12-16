@@ -10,25 +10,6 @@ open Array
 
 namespace IIT
 
-/-
-
-structure Constructor :=
-  (name : Name)
-  (type : Expr)
-
-structure InductiveType :=
-  (name : Name)
-  (type : Expr)
-  (ctors : List Constructor)
--/
-
-/-
-1. collect Ids for sorts
-2. erase
-3. ???
-4. profit
--/
-
 open Expr
 
 def erasureSuffix : String := "E"
@@ -67,4 +48,5 @@ its.map $ λ it => { name := it.name ++ erasureSuffix,
                     type := eraseSort it.type,
                     ctors := it.ctors.map (λ ctor => { name := ctor.name ++ erasureSuffix,
                                                        type := eraseCtor ctor.type its } ) }
+
 end IIT

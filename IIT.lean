@@ -32,8 +32,8 @@ open Lean
 open List
 open Meta
 
-
-def declareInductiveTypes (views : Array InductiveView) (vars : Array Expr) (its : Array InductiveType) : TermElabM Unit := do
+def declareInductiveTypes (views : Array InductiveView) (vars : Array Expr) (params : Array (Array Expr))
+ (its : Array InductiveType) : TermElabM Unit := do
   let view0 := views[0]
   let allUserLevelNames := view0.levelNames
   let isUnsafe          := view0.modifiers.isUnsafe
@@ -43,7 +43,6 @@ def declareInductiveTypes (views : Array InductiveView) (vars : Array Expr) (its
   let inferLevel ← shouldInferResultUniverse u
   withUsed vars indTypes fun vars => do
     let indFVars  := #[] -- TODO
-    --let params    := #[] -- TODO
     let numExplicitParams := 0 --params.size
     let numVars   := vars.size
     let numParams := numVars + numExplicitParams
@@ -52,9 +51,9 @@ def declareInductiveTypes (views : Array InductiveView) (vars : Array Expr) (its
     --let indTypes ← if inferLevel then updateResultingUniverse numParams indTypes else checkResultingUniverses indTypes; pure indTypes
     let usedLevelNames := collectLevelParamsInInductive indTypes
     match sortDeclLevelParams scopeLevelNames allUserLevelNames usedLevelNames with
-    | Except.error msg      => throwError msg
+    | Except.error msg      => throwErrorAt view0.ref msg
     | Except.ok levelParams => do
-      let indTypes ← replaceIndFVarsWithConsts views indFVars levelParams numVars numParams indTypes
+      --let indTypes ← replaceIndFVarsWithConsts views indFVars levelParams numVars numParams indTypes TODO fix indFVars to call this
       let indTypes := applyInferMod views numParams indTypes
       let decl := Declaration.inductDecl levelParams numParams indTypes isUnsafe
       Term.ensureNoUnassignedMVars decl
@@ -68,12 +67,13 @@ def declareInductiveTypes (views : Array InductiveView) (vars : Array Expr) (its
 
 def elabIIT (elems : Array Syntax) : CommandElabM Unit := do
   let views ← elems.mapM inductiveSyntaxToView
-  let its ← liftTermElabM none (preElabViews #[] views) -- replace #[]!
-  let eits := erase its
+  let pers ← liftTermElabM none (preElabViews #[] views) -- replace #[]
+  let params := pers.map PreElabResult.params
+  let eits := erase $ pers.map PreElabResult.it
   let view0 := views[0]
   let ref := view0.ref
   runTermElabM view0.declName fun vars =>
-     withRef ref $ declareInductiveTypes views vars eits
+     withRef ref $ declareInductiveTypes views vars params eits
 
 end IITElab
 
@@ -127,4 +127,4 @@ iit Foo : Type where
 
 end
 
-#check Tm.E
+#check @Tm.E.rec

@@ -42,10 +42,10 @@ def inductiveSyntaxToView (decl : Syntax) : CommandElabM InductiveView := do
          type?         := some type,
          ctors         := ctors : InductiveView }
 
-private def getResultingType (e : Expr) : TermElabM Expr :=
+def getResultingType (e : Expr) : TermElabM Expr :=
   forallTelescopeReducing e fun _ r => pure r
 
-private def getResultingUniverse : List InductiveType → TermElabM Level
+def getResultingUniverse : List InductiveType → TermElabM Level
   | []           => throwError "unexpected empty inductive declaration"
   | indType :: _ => do
     let r ← getResultingType indType.type
@@ -53,36 +53,37 @@ private def getResultingUniverse : List InductiveType → TermElabM Level
     | Expr.sort u _ => pure u
     | _             => throwError "unexpected inductive type resulting type"
 
-private def collectUsed (indTypes : List InductiveType) : StateRefT CollectFVars.State TermElabM Unit := do
+def collectUsed (indTypes : List InductiveType) : StateRefT CollectFVars.State TermElabM Unit := do
   indTypes.forM fun indType => do
     Term.collectUsedFVars indType.type
     indType.ctors.forM fun ctor =>
       Term.collectUsedFVars ctor.type
 
-private def removeUnused (vars : Array Expr) (indTypes : List InductiveType) : TermElabM (LocalContext × LocalInstances × Array Expr) := do
+def removeUnused (vars : Array Expr) (indTypes : List InductiveType) : TermElabM (LocalContext × LocalInstances × Array Expr) := do
   let (_, used) ← (collectUsed indTypes).run {}
   Term.removeUnused vars used
 
-private def withUsed {α} (vars : Array Expr) (indTypes : List InductiveType) (k : Array Expr → TermElabM α) : TermElabM α := do
+def withUsed {α} (vars : Array Expr) (indTypes : List InductiveType) (k : Array Expr → TermElabM α) : TermElabM α := do
   let (lctx, localInsts, vars) ← removeUnused vars indTypes
   withLCtx lctx localInsts $ k vars
 
-private def collectLevelParamsInInductive (indTypes : List InductiveType) : Array Name :=
+def collectLevelParamsInInductive (indTypes : List InductiveType) : Array Name :=
   let usedParams := indTypes.foldl (init := {}) fun (usedParams : CollectLevelParams.State) indType =>
     let usedParams := collectLevelParams usedParams indType.type;
     indType.ctors.foldl (init := usedParams) fun (usedParams : CollectLevelParams.State) ctor =>
       collectLevelParams usedParams ctor.type
   usedParams.params
 
-private def mkIndFVar2Const (views : Array InductiveView) (indFVars : Array Expr) (levelNames : List Name) : ExprMap Expr :=
+def mkIndFVar2Const (views : Array InductiveView) (indFVars : Array Expr) (levelNames : List Name) : ExprMap Expr :=
   let levelParams := levelNames.map mkLevelParam;
   views.size.fold (init := {}) fun i (m : ExprMap Expr) =>
     let view    := views[i]
     let indFVar := indFVars[i]
     m.insert indFVar (mkConst view.declName levelParams)
 
-private def replaceIndFVarsWithConsts (views : Array InductiveView) (indFVars : Array Expr) (levelNames : List Name)
+def replaceIndFVarsWithConsts (views : Array InductiveView) (indFVars : Array Expr) (levelNames : List Name)
     (numVars : Nat) (numParams : Nat) (indTypes : List InductiveType) : TermElabM (List InductiveType) :=
+  if indFVars.size < views.size then throwErrorAt views[0].ref "indFVars too small!" else
   let indFVar2Const := mkIndFVar2Const views indFVars levelNames
   indTypes.mapM fun indType => do
     let ctors ← indType.ctors.mapM fun ctor => do
@@ -97,12 +98,12 @@ private def replaceIndFVarsWithConsts (views : Array InductiveView) (indFVars : 
       pure { ctor with type := type }
     pure { indType with ctors := ctors }
 
-private def mkCtor2InferMod (views : Array InductiveView) : Ctor2InferMod :=
+def mkCtor2InferMod (views : Array InductiveView) : Ctor2InferMod :=
   views.foldl (init := {}) fun m view =>
     view.ctors.foldl (init := m) fun m ctorView =>
       m.insert ctorView.declName ctorView.inferMod
 
-private def applyInferMod (views : Array InductiveView) (numParams : Nat) (indTypes : List InductiveType) : List InductiveType :=
+def applyInferMod (views : Array InductiveView) (numParams : Nat) (indTypes : List InductiveType) : List InductiveType :=
   let ctor2InferMod := mkCtor2InferMod views
   indTypes.map fun indType =>
     let ctors := indType.ctors.map fun ctor =>
@@ -110,5 +111,45 @@ private def applyInferMod (views : Array InductiveView) (numParams : Nat) (indTy
       let ctorType := ctor.type.inferImplicit numParams !inferMod
       { ctor with type := ctorType }
     { indType with ctors := ctors }
+
+def isInductiveFamily (numParams : Nat) (indFVar : Expr) : TermElabM Bool := do
+  let indFVarType ← inferType indFVar
+  forallTelescopeReducing indFVarType fun xs _ =>
+    pure $ xs.size > numParams
+
+def elabCtors (indFVar : Expr) (params : Array Expr) (r : ElabHeaderResult) : TermElabM (List Constructor) :=
+  withRef r.view.ref do
+  let indFamily ← isInductiveFamily params.size indFVar
+  r.view.ctors.toList.mapM fun ctorView => Term.elabBinders ctorView.binders.getArgs fun ctorParams =>
+    withRef ctorView.ref do
+    let type ← match ctorView.type? with
+      | none          =>
+        if indFamily then
+          throwError "constructor resulting type must be specified in inductive family declaration"
+        pure (mkAppN indFVar params)
+      | some ctorType =>
+        let type ← Term.elabTerm ctorType none
+        let resultingType ← getResultingType type
+        unless resultingType.getAppFn == indFVar do
+          throwError! "unexpected constructor resulting type{indentExpr resultingType}"
+        unless (← isType resultingType) do
+          throwError! "unexpected constructor resulting type, type expected{indentExpr resultingType}"
+        let args := resultingType.getAppArgs
+        for i in [:params.size] do
+          let param := params[i]
+          let arg   := args[i]
+          unless (← isDefEq param arg) do
+            throwError! "inductive datatype parameter mismatch{indentExpr arg}\nexpected{indentExpr param}"
+        pure type
+    let type ← mkForallFVars ctorParams type
+    let type ← mkForallFVars params type
+    pure { name := ctorView.declName, type := type }
+
+def checkLevelNames (views : Array InductiveView) : TermElabM Unit := do
+  if views.size > 1 then
+    let levelNames := views[0].levelNames
+    for view in views do
+      unless view.levelNames == levelNames do
+        throwErrorAt view.ref "invalid inductive type, universe parameters mismatch in mutually inductive datatypes"
 
 end IIT
