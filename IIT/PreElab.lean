@@ -68,6 +68,7 @@ partial def preElabConstrAuxAux (hr : PreElabHeaderResult) (view : InductiveView
       | none => throwError "constructor type must be specified"
       | some ctorType => 
         let type ← Term.elabTerm ctorType none
+        --throwError ctorType
         let resultingType ← getResultingType type
         unless resultingType.getAppFn == hr.fVar do throwError! "unexpected constructor resulting type{indentExpr resultingType}"
         unless (← isType resultingType) do throwError! "unexpected constructor resulting type, type expected"
@@ -91,7 +92,7 @@ partial def preElabConstrAux (hrs : Array PreElabHeaderResult) (views : Array In
     | none => throwError "empty header!"
     | some hr => 
       let prs ← preElabConstrAuxAux hr views[i] 0
-      let prss ← preElabConstrAux hrs views (i + 1)
+      let prss ← preElabConstrAux hrs views (i + 1) --TODO not sure if I need to add context for this step
       return prss.push prs
 
 -- Adapted from Lean.Elab.Inductive
@@ -103,9 +104,18 @@ def preElabViews (views : Array InductiveView) : TermElabM (Array PreElabHeaderR
   let isUnsafe          := view0.modifiers.isUnsafe
   withRef view0.ref $ Term.withLevelNames allUserLevelNames do
     let hrs ← preElabHeadersAux views 0
+    -- do I need to somehow re-add header fVars??
     let cts ← preElabConstrAux hrs views 0
     Term.synthesizeSyntheticMVarsNoPostponing
     --TODO other cosmetics
     pure (hrs, cts)
+
+def prToIT (hr : PreElabHeaderResult) (crs : Array PreElabCtorResult) : InductiveType :=
+{ name := hr.view.declName, type := hr.type, ctors := (crs.map (λ cr => { name := cr.name, type := cr.type })).toList }
+
+def preElabViewsIT (views : Array InductiveView) : TermElabM (Array InductiveType) := do
+  let (hrs, ctrss) ← preElabViews views
+  let prs := Array.zip hrs ctrss
+  return prs.map (λ (hr, ctrs) => prToIT hr ctrs)
 
 end IIT

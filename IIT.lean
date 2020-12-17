@@ -67,15 +67,13 @@ def declareInductiveTypes (views : Array InductiveView) (vars : Array Expr) (par
 
 def elabIIT (elems : Array Syntax) : CommandElabM Unit := do
   let views ← elems.mapM inductiveSyntaxToView
-  let (hrs, ctrs) ← liftTermElabM none (preElabViews #[] views) --TODO replace empty array
-  let params := hrs.map $ λ hr => hr.params
-  let eits := erase $ pers.map PreElabResult.it
+  let its ← liftTermElabM none (preElabViewsIT views)
+  --let params := views.params ???
+  let eits := erase its
   let view0 := views[0]
   let ref := view0.ref
   runTermElabM view0.declName fun vars =>
-     withRef ref $ declareInductiveTypes views vars params eits
-
-#check PreElabHeaderResult.toElabHeaderResult
+     withRef ref $ declareInductiveTypes views vars #[] eits
 
 end IITElab
 
@@ -118,10 +116,10 @@ mutual
 -- TODO one index out of bounds error per sort
 
 iit Con : Nat → Type where
-| nil : Con
+| nil : Con 0
 
 iit Ty : Con 0 → Type where
-| U : Ty Con.nil
+--| U : Ty Con.nil
 
 iit Tm : (Γ : Con 0) → Ty Γ → Type where
 
@@ -129,4 +127,4 @@ iit Foo : Type where
 
 end
 
-#check @Tm.E.rec
+#check @Con.E.rec
