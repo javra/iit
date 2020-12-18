@@ -116,7 +116,7 @@ mutual
 -- TODO one index out of bounds error per sort
 
 iit Con : Nat → Type where
-| nil : Con 0
+--| nil : Con 0
 
 iit Ty : Con 0 → Type where
 --| U : Ty Con.nil

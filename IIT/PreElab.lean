@@ -45,23 +45,26 @@ partial def elabSingleHeader (view : InductiveView) : TermElabM ElabHeaderResult
 structure PreElabHeaderResult extends ElabHeaderResult where
   fVar   : Expr
 
-partial def preElabHeadersAux (views : Array InductiveView) (i : Nat) : TermElabM (Array PreElabHeaderResult) := do
-  if (i >= views.size) then return #[]
+partial def withPreElabHeaders {α} (views : Array InductiveView)
+  (x : Array PreElabHeaderResult → TermElabM α) (hrs : Array PreElabHeaderResult := #[]) : TermElabM α := do
+  let i := hrs.size
+  if (i >= views.size) then x hrs
   else
     let hr ← elabSingleHeader views[i]
     let type ← mkForallFVars hr.params hr.type
-    withLCtx hr.lctx hr.localInsts do
-      withLocalDeclD hr.view.declName type (λ indFVar => do
+    withLCtx hr.lctx hr.localInsts do -- we should only add this local context for the _first_ sort!
+      withLocalDeclD hr.view.declName type $ λ indFVar => do
         let hr := { toElabHeaderResult := { hr with type := type }, fVar := indFVar : PreElabHeaderResult }
-        let hrs ← preElabHeadersAux views (i + 1)
-        pure $ hrs.push hr)
+        withPreElabHeaders views x $ hrs.push hr
 
 structure PreElabCtorResult extends Constructor where
   fVar   : Expr
 
-partial def preElabConstrAuxAux (hr : PreElabHeaderResult) (view : InductiveView) (j : Nat) : TermElabM (Array PreElabCtorResult) := do
-  if (j >= view.ctors.size) then return #[]
-  else withRef view.ref do
+partial def withPreElabCtor {α} (view : InductiveView) (hr : PreElabHeaderResult)
+  (x : Array PreElabCtorResult → TermElabM α) (crs : Array PreElabCtorResult := #[]) : TermElabM α := do
+  let j := crs.size
+  if (j >= view.ctors.size) then x crs
+  else withRef view.ctors[j].ref do
     let ctorView := view.ctors[j]
     Term.elabBinders ctorView.binders.getArgs fun ctorParams => do
     let type ← match ctorView.type? with
@@ -80,22 +83,21 @@ partial def preElabConstrAuxAux (hr : PreElabHeaderResult) (view : InductiveView
         pure type
     let type ← mkForallFVars ctorParams type
     let type ← mkForallFVars hr.params type
-    withLocalDeclD ctorView.declName type (λ ctorFVar => do
+    withLocalDeclD ctorView.declName type $ λ ctorFVar => do
       let cr := { name := ctorView.declName, type := type, fVar := ctorFVar : PreElabCtorResult }
-      let crs ← preElabConstrAuxAux hr view (j + 1)
-      return crs.push cr)
+      withPreElabCtor view hr x $ crs.push cr
 
-partial def preElabConstrAux (hrs : Array PreElabHeaderResult) (views : Array InductiveView) (i : Nat) : TermElabM (Array (Array PreElabCtorResult)) := do
-  if (i >= views.size) then return #[]
-  withRef views[i].ref do
+partial def withPreElabCtors {α} (views : Array InductiveView) (hrs : Array PreElabHeaderResult)
+  (x : Array (Array PreElabCtorResult) → TermElabM α) (crss : Array (Array PreElabCtorResult) := #[]) : TermElabM α := do
+  let i := crss.size
+  if (i >= views.size) then x crss
+  else withRef views[i].ref do
     match hrs.get? i with
     | none => throwError "empty header!"
-    | some hr => 
-      let prs ← preElabConstrAuxAux hr views[i] 0
-      let prss ← preElabConstrAux hrs views (i + 1) --TODO not sure if I need to add context for this step
-      return prss.push prs
-
--- Adapted from Lean.Elab.Inductive
+    | some hr =>
+      withPreElabCtor views[i] hr $ λ crs =>
+        withPreElabCtors views hrs x $ crss.push crs
+      
 def preElabViews (views : Array InductiveView) : TermElabM (Array PreElabHeaderResult × Array (Array PreElabCtorResult)) := do
   let view0 := views[0]
   let scopeLevelNames ← Term.getLevelNames
@@ -103,12 +105,11 @@ def preElabViews (views : Array InductiveView) : TermElabM (Array PreElabHeaderR
   let allUserLevelNames := view0.levelNames
   let isUnsafe          := view0.modifiers.isUnsafe
   withRef view0.ref $ Term.withLevelNames allUserLevelNames do
-    let hrs ← preElabHeadersAux views 0
-    -- do I need to somehow re-add header fVars??
-    let cts ← preElabConstrAux hrs views 0
-    Term.synthesizeSyntheticMVarsNoPostponing
-    --TODO other cosmetics
-    pure (hrs, cts)
+    withPreElabHeaders views $ λ hrs =>
+      withPreElabCtors views hrs $ λ crss => do
+        Term.synthesizeSyntheticMVarsNoPostponing
+        -- TODO other cosmetics go here
+        return (hrs, crss)
 
 def prToIT (hr : PreElabHeaderResult) (crs : Array PreElabCtorResult) : InductiveType :=
 { name := hr.view.declName, type := hr.type, ctors := (crs.map (λ cr => { name := cr.name, type := cr.type })).toList }
