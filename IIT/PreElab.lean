@@ -45,6 +45,9 @@ partial def elabSingleHeader (view : InductiveView) : TermElabM ElabHeaderResult
 structure PreElabHeaderResult extends ElabHeaderResult where
   fVar   : Expr
 
+instance : Inhabited PreElabHeaderResult :=
+  ⟨{ toElabHeaderResult := arbitrary, fVar := arbitrary }⟩
+
 partial def withPreElabHeaders {α} (views : Array InductiveView)
   (x : Array PreElabHeaderResult → TermElabM α) (hrs : Array PreElabHeaderResult := #[]) : TermElabM α := do
   let i := hrs.size
@@ -97,26 +100,56 @@ partial def withPreElabCtors {α} (views : Array InductiveView) (hrs : Array Pre
     | some hr =>
       withPreElabCtor views[i] hr $ λ crs =>
         withPreElabCtors views hrs x $ crss.push crs
-      
-def preElabViews (views : Array InductiveView) : TermElabM (Array PreElabHeaderResult × Array (Array PreElabCtorResult)) := do
+
+def withPreElabViews {α} (views : Array InductiveView) (x : Array PreElabHeaderResult → Array (Array PreElabCtorResult) → TermElabM α)
+  (hrs : Array PreElabCtorResult := #[]) (crss : Array (Array PreElabCtorResult) := #[]) : TermElabM α := do
   let view0 := views[0]
-  let scopeLevelNames ← Term.getLevelNames
   checkLevelNames views
   let allUserLevelNames := view0.levelNames
-  let isUnsafe          := view0.modifiers.isUnsafe
   withRef view0.ref $ Term.withLevelNames allUserLevelNames do
-    withPreElabHeaders views $ λ hrs =>
-      withPreElabCtors views hrs $ λ crss => do
+    withPreElabHeaders views fun hrs =>
+      withPreElabCtors views hrs fun crss => do
         Term.synthesizeSyntheticMVarsNoPostponing
-        -- TODO other cosmetics go here
-        return (hrs, crss)
+        -- TODO is there other cosmetics to go here?
+        x hrs crss
 
-def prToIT (hr : PreElabHeaderResult) (crs : Array PreElabCtorResult) : InductiveType :=
-{ name := hr.view.declName, type := hr.type, ctors := (crs.map (λ cr => { name := cr.name, type := cr.type })).toList }
+def preElabResultToIT (hr : PreElabHeaderResult) (crs : Array PreElabCtorResult) : TermElabM InductiveType := do
+  let indFVar := hr.fVar
+  let type ← mkForallFVars hr.params hr.type
+  let ctors := crs.toList.map PreElabCtorResult.toConstructor
+  return { name := hr.view.declName, type := type, ctors := ctors : InductiveType }
 
-def preElabViewsIT (views : Array InductiveView) : TermElabM (Array InductiveType) := do
-  let (hrs, ctrss) ← preElabViews views
-  let prs := Array.zip hrs ctrss
-  return prs.map (λ (hr, ctrs) => prToIT hr ctrs)
+structure PreElabResult where
+  its         : List InductiveType
+  levelParams : List Name
+  numParams   : Nat
+  isUnsafe    : Bool
+
+def preElabViews (vars : Array Expr) (views : Array InductiveView) : TermElabM PreElabResult := do
+  let view0             := views[0]
+  let scopeLevelNames   ← Term.getLevelNames
+  let isUnsafe          := view0.modifiers.isUnsafe
+  let allUserLevelNames := view0.levelNames
+  withPreElabViews views fun hrs crss => do
+    let hr0 := hrs[0]
+    let numExplicitParams := hr0.params.size
+    let indTypes ← (Array.zip hrs crss).mapM (λ (hr, crs) => preElabResultToIT hr crs)
+    let indTypes := indTypes.toList
+    Term.synthesizeSyntheticMVarsNoPostponing
+    let u ← getResultingUniverse indTypes
+    let inferLevel ← shouldInferResultUniverse u
+    withUsed vars indTypes fun vars => do
+      let numVars   := vars.size
+      let numParams := numVars + numExplicitParams
+      let indTypes ← levelMVarToParam indTypes
+      let indTypes ← if inferLevel then updateResultingUniverse numParams indTypes else checkResultingUniverses indTypes; pure indTypes
+      let usedLevelNames := collectLevelParamsInInductive indTypes
+      match sortDeclLevelParams scopeLevelNames allUserLevelNames usedLevelNames with
+        | Except.error msg      => throwError msg
+        | Except.ok levelParams => do
+          let indFVars := hrs.map PreElabHeaderResult.fVar
+          let indTypes ← replaceIndFVarsWithConsts views indFVars levelParams numVars numParams indTypes
+          let indTypes := applyInferMod views numParams indTypes
+            return { its := indTypes, levelParams := levelParams, numParams := numParams, isUnsafe := isUnsafe }
 
 end IIT

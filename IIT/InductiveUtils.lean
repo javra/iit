@@ -98,6 +98,23 @@ def replaceIndFVarsWithConsts (views : Array InductiveView) (indFVars : Array Ex
       pure { ctor with type := type }
     pure { indType with ctors := ctors }
 
+-- same as above, but just goes by name of the fvar
+def replaceIndFVarsWithConsts' (views : Array InductiveView) (levelNames : List Name)
+    (numVars : Nat) (numParams : Nat) (indTypes : Array InductiveType) : TermElabM (Array InductiveType) :=
+  let levelParams := levelNames.map mkLevelParam
+  indTypes.mapM fun indType => do
+    let ctors ← indType.ctors.mapM fun ctor => do
+      let type ← forallBoundedTelescope ctor.type numParams fun params type => do
+        let type := type.replace fun e =>
+          if !e.isFVar then
+            none
+          else match indTypes.find? (λ it => it.name == e.fvarId!) with
+            | none    => none
+            | some it => mkAppN (mkConst it.name levelParams) (params.extract 0 numVars)
+        mkForallFVars params type
+      pure { ctor with type := type }
+    pure { indType with ctors := ctors }
+
 def mkCtor2InferMod (views : Array InductiveView) : Ctor2InferMod :=
   views.foldl (init := {}) fun m view =>
     view.ctors.foldl (init := m) fun m ctorView =>
@@ -151,5 +168,97 @@ def checkLevelNames (views : Array InductiveView) : TermElabM Unit := do
     for view in views do
       unless view.levelNames == levelNames do
         throwErrorAt view.ref "invalid inductive type, universe parameters mismatch in mutually inductive datatypes"
+
+def updateParams (vars : Array Expr) (indTypes : List InductiveType) : TermElabM (List InductiveType) :=
+  indTypes.mapM fun indType => do
+    let type ← mkForallFVars vars indType.type
+    let ctors ← indType.ctors.mapM fun ctor => do
+      let ctorType ← mkForallFVars vars ctor.type
+      pure { ctor with type := ctorType }
+    pure { indType with type := type, ctors := ctors }
+
+def levelMVarToParamAux (indTypes : List InductiveType) : StateRefT Nat TermElabM (List InductiveType) :=
+  indTypes.mapM fun indType => do
+    let type  ← Term.levelMVarToParam' indType.type
+    let ctors ← indType.ctors.mapM fun ctor => do
+      let ctorType ← Term.levelMVarToParam' ctor.type
+      pure { ctor with type := ctorType }
+    pure { indType with ctors := ctors, type := type }
+
+def levelMVarToParam (indTypes : List InductiveType) : TermElabM (List InductiveType) :=
+  (levelMVarToParamAux indTypes).run' 1
+
+/-
+  Auxiliary function for `updateResultingUniverse`
+  `accLevelAtCtor u r rOffset us` add `u` components to `us` if they are not already there and it is different from the resulting universe level `r+rOffset`.
+  If `u` is a `max`, then its components are recursively processed.
+  If `u` is a `succ` and `rOffset > 0`, we process the `u`s child using `rOffset-1`.
+
+  This method is used to infer the resulting universe level of an inductive datatype. -/
+def accLevelAtCtor : Level → Level → Nat → Array Level → TermElabM (Array Level)
+  | Level.max u v _,  r, rOffset,   us => do let us ← accLevelAtCtor u r rOffset us; accLevelAtCtor v r rOffset us
+  | Level.imax u v _, r, rOffset,   us => do let us ← accLevelAtCtor u r rOffset us; accLevelAtCtor v r rOffset us
+  | Level.zero _,     _, _,         us => pure us
+  | Level.succ u _,   r, rOffset+1, us => accLevelAtCtor u r rOffset us
+  | u,                r, rOffset,   us =>
+    if rOffset == 0 && u == r then pure us
+    else if r.occurs u  then throwError! "failed to compute resulting universe level of inductive datatype, provide universe explicitly"
+    else if rOffset > 0 then throwError! "failed to compute resulting universe level of inductive datatype, provide universe explicitly"
+    else if us.contains u then pure us
+    else pure (us.push u)
+
+/- Auxiliary function for `updateResultingUniverse` -/
+private partial def collectUniversesFromCtorTypeAux (r : Level) (rOffset : Nat) : Nat → Expr → Array Level → TermElabM (Array Level)
+  | 0,   Expr.forallE n d b c, us => do
+    let u ← getLevel d
+    let u ← instantiateLevelMVars u
+    let us ← accLevelAtCtor u r rOffset us
+    withLocalDecl n c.binderInfo d fun x =>
+      let e := b.instantiate1 x
+      collectUniversesFromCtorTypeAux r rOffset 0 e us
+  | i+1, Expr.forallE n d b c, us => do
+    withLocalDecl n c.binderInfo d fun x =>
+      let e := b.instantiate1 x
+      collectUniversesFromCtorTypeAux r rOffset i e us
+  | _, _, us => pure us
+
+/- Auxiliary function for `updateResultingUniverse` -/
+private partial def collectUniversesFromCtorType
+    (r : Level) (rOffset : Nat) (ctorType : Expr) (numParams : Nat) (us : Array Level) : TermElabM (Array Level) :=
+  collectUniversesFromCtorTypeAux r rOffset numParams ctorType us
+
+/- Auxiliary function for `updateResultingUniverse` -/
+private partial def collectUniverses (r : Level) (rOffset : Nat) (numParams : Nat) (indTypes : List InductiveType) : TermElabM (Array Level) :=
+  indTypes.foldlM (init := #[]) fun us indType =>
+    indType.ctors.foldlM (init := us) fun us ctor =>
+      collectUniversesFromCtorType r rOffset ctor.type numParams us
+
+def mkResultUniverse (us : Array Level) (rOffset : Nat) : Level :=
+  if us.isEmpty && rOffset == 0 then
+    levelOne
+  else
+    let r := Level.mkNaryMax us.toList
+    if rOffset == 0 && !r.isZero && !r.isNeverZero then
+      (mkLevelMax r levelOne).normalize
+    else
+      r.normalize
+
+def updateResultingUniverse (numParams : Nat) (indTypes : List InductiveType) : TermElabM (List InductiveType) := do
+  let r ← getResultingUniverse indTypes
+  let rOffset : Nat   := r.getOffset
+  let r       : Level := r.getLevelOffset
+  unless r.isParam do
+    throwError "failed to compute resulting universe level of inductive datatype, provide universe explicitly"
+  let us ← collectUniverses r rOffset numParams indTypes
+  trace[Elab.inductive]! "updateResultingUniverse us: {us}, r: {r}, rOffset: {rOffset}"
+  let rNew := mkResultUniverse us rOffset
+  let updateLevel (e : Expr) : Expr := e.replaceLevel fun u => if u == tmpIndParam then some rNew else none
+  return indTypes.map fun indType =>
+    let type := updateLevel indType.type;
+    let ctors := indType.ctors.map fun ctor => { ctor with type := updateLevel ctor.type };
+    { indType with type := type, ctors := ctors }
+
+def checkResultingUniverses (indTypes : List InductiveType) : TermElabM Unit := do
+  checkResultingUniverse (← getResultingUniverse indTypes)
 
 end IIT
