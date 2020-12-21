@@ -4,6 +4,7 @@ import Lean.Elab
 import IIT.InductiveUtils
 import IIT.PreElab
 import IIT.Erasure
+import IIT.Wellformedness
 
 namespace IIT
 
@@ -37,7 +38,7 @@ def declareInductiveTypes (views : Array InductiveView) (pr : PreElabResult) : T
   let decl := Declaration.inductDecl pr.levelParams pr.numParams pr.its pr.isUnsafe
   Term.ensureNoUnassignedMVars decl
   addDecl decl
-  mkAuxConstructions views
+  --mkAuxConstructions views TODO maybe call this with updated views, that just replace name?s
   throwErrorAt view0.ref $ "Created types ".append (pr.its.map (λ it => it.name)).toString
   for view in views do
         Term.applyAttributesAt view.declName view.modifiers.attrs AttributeApplicationTime.afterTypeChecking
@@ -52,6 +53,9 @@ def elabIIT (elems : Array Syntax) : CommandElabM Unit := do
       let eits := erase pr.its
       let epr := { pr with its := eits }
       declareInductiveTypes views epr
+      let wits := wellf its eits
+      let wpr := { pr with its := wits }
+      declareInductiveTypes views wpr
 
 end IITElab
 
@@ -103,4 +107,4 @@ iit Foo : Type where
 
 end
 
-#check @Ty.pi.E
+#check @Con.ext.E
