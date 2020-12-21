@@ -261,4 +261,22 @@ def updateResultingUniverse (numParams : Nat) (indTypes : List InductiveType) : 
 def checkResultingUniverses (indTypes : List InductiveType) : TermElabM Unit := do
   checkResultingUniverse (← getResultingUniverse indTypes)
 
+def mkAuxConstructions (views : Array InductiveView) : TermElabM Unit := do
+  let env ← getEnv
+  let hasEq   := env.contains `Eq
+  let hasHEq  := env.contains `HEq
+  let hasUnit := env.contains `PUnit
+  let hasProd := env.contains `Prod
+  for view in views do
+    let n := view.declName
+    mkRecOn n
+    if hasUnit then mkCasesOn n
+    if hasUnit && hasEq && hasHEq then mkNoConfusion n
+    if hasUnit && hasProd then mkBelow n
+    if hasUnit && hasProd then mkIBelow n
+  for view in views do
+    let n := view.declName;
+    if hasUnit && hasProd then mkBRecOn n
+    if hasUnit && hasProd then mkBInductionOn n
+
 end IIT

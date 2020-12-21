@@ -32,48 +32,26 @@ open Lean
 open List
 open Meta
 
-def declareInductiveTypes (views : Array InductiveView) (vars : Array Expr) (params : Array (Array Expr))
- (its : Array InductiveType) : TermElabM Unit := do
+def declareInductiveTypes (views : Array InductiveView) (pr : PreElabResult) : TermElabM Unit := do
   let view0 := views[0]
-  let allUserLevelNames := view0.levelNames
-  let isUnsafe          := view0.modifiers.isUnsafe
-  let indTypes := its.toList
-  let scopeLevelNames ← Term.getLevelNames
-  let u ← getResultingUniverse indTypes
-  let inferLevel ← shouldInferResultUniverse u
-  withUsed vars indTypes fun vars => do
-    let indFVars  := #[] -- TODO
-    let numExplicitParams := 0 --params.size
-    let numVars   := vars.size
-    let numParams := numVars + numExplicitParams
-    --let indTypes ← updateParams vars indTypes
-    --let indTypes ← levelMVarToParam indTypes
-    --let indTypes ← if inferLevel then updateResultingUniverse numParams indTypes else checkResultingUniverses indTypes; pure indTypes
-    let usedLevelNames := collectLevelParamsInInductive indTypes
-    match sortDeclLevelParams scopeLevelNames allUserLevelNames usedLevelNames with
-    | Except.error msg      => throwErrorAt view0.ref msg
-    | Except.ok levelParams => do
-      --let indTypes ← replaceIndFVarsWithConsts views indFVars levelParams numVars numParams indTypes TODO fix indFVars to call this
-      let indTypes := applyInferMod views numParams indTypes
-      let decl := Declaration.inductDecl levelParams numParams indTypes isUnsafe
-      Term.ensureNoUnassignedMVars decl
-      addDecl decl
-      throwErrorAt view0.ref $ "Created types ".append (indTypes.map (λ it => it.name)).toString
-      --mkAuxConstructions views TODO
-      -- We need to invoke `applyAttributes` because `class` is implemented as an attribute.
-      for view in views do
-            Term.applyAttributesAt view.declName view.modifiers.attrs AttributeApplicationTime.afterTypeChecking
+  let decl := Declaration.inductDecl pr.levelParams pr.numParams pr.its pr.isUnsafe
+  Term.ensureNoUnassignedMVars decl
+  addDecl decl
+  mkAuxConstructions views
+  throwErrorAt view0.ref $ "Created types ".append (pr.its.map (λ it => it.name)).toString
+  for view in views do
+        Term.applyAttributesAt view.declName view.modifiers.attrs AttributeApplicationTime.afterTypeChecking
   return
 
 def elabIIT (elems : Array Syntax) : CommandElabM Unit := do
   let views ← elems.mapM inductiveSyntaxToView
-  let its ← liftTermElabM none (preElabViewsIT views)
-  --let params := views.params ???
-  let eits := erase its
   let view0 := views[0]
-  let ref := view0.ref
-  runTermElabM view0.declName fun vars =>
-     withRef ref $ declareInductiveTypes views vars #[] eits
+  runTermElabM view0.declName fun vars => do
+    withRef view0.ref do
+      let pr ← preElabViews vars views
+      let eits := erase pr.its
+      let epr := { pr with its := eits }
+      declareInductiveTypes views epr
 
 end IITElab
 
@@ -98,10 +76,8 @@ private def isIITMutual (stx : Syntax) : Bool :=
 -- otherwise elab as before
 @[commandElab «mutual»] def elabIITMutual : CommandElab :=
 fun stx =>
-  if isIITMutual stx then
-    elabIIT stx[1].getArgs
-  else
-    elabMutual stx
+  if isIITMutual stx then elabIIT stx[1].getArgs
+  else elabMutual stx
 
 end MutualElab
 
@@ -113,18 +89,18 @@ end IIT
 
 mutual
 
--- TODO one index out of bounds error per sort
+iit Con : Type where
+| nil : Con
+| ext : ∀ (Γ : Con), Ty Γ → Con
 
-iit Con : Nat → Type where
---| nil : Con 0
+iit Ty : Con → Type where
+| U : ∀ (Γ : Con), Ty Γ
+| pi : ∀ (Γ : Con) (A : Ty Γ) (B : Ty (Con.ext Γ A)), Ty Γ
 
-iit Ty : Con 0 → Type where
---| U : Ty Con.nil
-
-iit Tm : (Γ : Con 0) → Ty Γ → Type where
+iit Tm : (Γ : Con) → Ty Γ → Type where
 
 iit Foo : Type where
 
 end
 
-#check @Con.E.rec
+#check @Ty.pi.E
