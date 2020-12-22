@@ -39,7 +39,7 @@ def declareInductiveTypes (views : Array InductiveView) (pr : PreElabResult) : T
   Term.ensureNoUnassignedMVars decl
   addDecl decl
   --mkAuxConstructions views TODO maybe call this with updated views, that just replace name?s
-  throwErrorAt view0.ref $ "Created types ".append (pr.its.map (λ it => it.name)).toString
+  --throwErrorAt view0.ref $ "Created types ".append (pr.its.map (λ it => it.name)).toString
   for view in views do
         Term.applyAttributesAt view.declName view.modifiers.attrs AttributeApplicationTime.afterTypeChecking
   return
@@ -53,7 +53,7 @@ def elabIIT (elems : Array Syntax) : CommandElabM Unit := do
       let eits := erase pr.its
       let epr := { pr with its := eits }
       declareInductiveTypes views epr
-      let wits := wellf its eits
+      let wits := wellf pr.its eits
       let wpr := { pr with its := wits }
       declareInductiveTypes views wpr
 
@@ -94,17 +94,17 @@ end IIT
 mutual
 
 iit Con : Type where
-| nil : Con
-| ext : ∀ (Γ : Con), Ty Γ → Con
+--| nil : Con
+--| ext : ∀ (Γ : Con), Ty Γ → Con
 
 iit Ty : Con → Type where
-| U : ∀ (Γ : Con), Ty Γ
-| pi : ∀ (Γ : Con) (A : Ty Γ) (B : Ty (Con.ext Γ A)), Ty Γ
+--| U : ∀ (Γ : Con), Ty Γ
+--| pi : ∀ (Γ : Con) (A : Ty Γ) (B : Ty (Con.ext Γ A)), Ty Γ
 
 iit Tm : (Γ : Con) → Ty Γ → Type where
 
 iit Foo : Type where
-
+ 
 end
 
-#check @Con.ext.E
+#check @Ty.w

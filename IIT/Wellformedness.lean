@@ -17,9 +17,10 @@ def wellfSuffix : String := "w"
 private def collectHeaderNames (its : List InductiveType) : Array Name :=
 its.toArray.map InductiveType.name
 
-private def headerAppIdx? (its : List InductiveType) (e : Expr) : Option Nat :=
+def headerAppIdx? (its : List InductiveType) (e : Expr) : Option Nat :=
 match e with
 | const n l d => getIdx? (collectHeaderNames its) n
+| fvar n d    => some 0 --getIdx? (collectHeaderNames its) n
 | app f e d   => headerAppIdx? its f
 | _           => none
 
@@ -28,10 +29,10 @@ instance : Inhabited InductiveType :=
 
 def wellfHeader (its eits : List InductiveType) (i : Nat) (e : Expr := (its.get! i).type) : Expr :=
 match e with
-| sort _ _        => mkForall "e" BinderInfo.default (eits.get! i).type (mkSort levelZero)
+| sort _ _        => mkForall "e" BinderInfo.default (mkConst $ (eits.get! i).name) (mkSort levelZero)
 | forallE n t b d => 
   match headerAppIdx? its t with
-  | some j => mkForall n e.binderInfo (eits.get! j).type (wellfHeader its eits i b)
+  | some j => mkForall n e.binderInfo (mkConst $ (eits.get! j).name) (wellfHeader its eits i b)
   | none   => mkForall n e.binderInfo t (wellfHeader its eits i b)
 | lam n t b d     => mkLambda n e.binderInfo (wellfHeader its eits i t) (wellfHeader its eits i b) --TODO not sure if unreachable
 | app f e d       => mkApp (wellfHeader its eits i f) e
@@ -39,9 +40,9 @@ match e with
 
 partial def wellf (its eits : List InductiveType) (i : Nat := 0) (wits := []) : List InductiveType :=
 if i >= its.length then wits else
-let it := its.get! i
-let wit := { name := it.name ++ wellfSuffix,
-             type := wellfHeader its eits i,
+let it  := its.get! i
+let wit := { name  := it.name ++ wellfSuffix,
+             type  := wellfHeader its eits i,
              ctors := [] : InductiveType }
 wellf its eits (i + 1) (wits.append [wit])
 

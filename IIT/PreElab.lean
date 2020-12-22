@@ -149,7 +149,8 @@ def preElabViews (vars : Array Expr) (views : Array InductiveView) : TermElabM P
         | Except.ok levelParams => do
           let indFVars := hrs.map PreElabHeaderResult.fVar
           let indTypes ← replaceIndFVarsWithConsts views indFVars levelParams numVars numParams indTypes
+          let indTypes ← replaceHeaderIndFVarsWithConsts views indFVars levelParams numVars numParams indTypes
           let indTypes := applyInferMod views numParams indTypes
-            return { its := indTypes, levelParams := levelParams, numParams := numParams, isUnsafe := isUnsafe }
+          return { its := indTypes, levelParams := levelParams, numParams := numParams, isUnsafe := isUnsafe }
 
 end IIT

@@ -83,7 +83,6 @@ def mkIndFVar2Const (views : Array InductiveView) (indFVars : Array Expr) (level
 
 def replaceIndFVarsWithConsts (views : Array InductiveView) (indFVars : Array Expr) (levelNames : List Name)
     (numVars : Nat) (numParams : Nat) (indTypes : List InductiveType) : TermElabM (List InductiveType) :=
-  if indFVars.size < views.size then throwErrorAt views[0].ref "indFVars too small!" else
   let indFVar2Const := mkIndFVar2Const views indFVars levelNames
   indTypes.mapM fun indType => do
     let ctors ← indType.ctors.mapM fun ctor => do
@@ -98,22 +97,19 @@ def replaceIndFVarsWithConsts (views : Array InductiveView) (indFVars : Array Ex
       pure { ctor with type := type }
     pure { indType with ctors := ctors }
 
--- same as above, but just goes by name of the fvar
-def replaceIndFVarsWithConsts' (views : Array InductiveView) (levelNames : List Name)
-    (numVars : Nat) (numParams : Nat) (indTypes : Array InductiveType) : TermElabM (Array InductiveType) :=
-  let levelParams := levelNames.map mkLevelParam
+def replaceHeaderIndFVarsWithConsts (views : Array InductiveView) (indFVars : Array Expr) (levelNames : List Name)
+  (numVars : Nat) (numParams : Nat) (indTypes : List InductiveType) : TermElabM (List InductiveType) :=
+  let indFVar2Const := mkIndFVar2Const views indFVars levelNames
   indTypes.mapM fun indType => do
-    let ctors ← indType.ctors.mapM fun ctor => do
-      let type ← forallBoundedTelescope ctor.type numParams fun params type => do
-        let type := type.replace fun e =>
-          if !e.isFVar then
-            none
-          else match indTypes.find? (λ it => it.name == e.fvarId!) with
-            | none    => none
-            | some it => mkAppN (mkConst it.name levelParams) (params.extract 0 numVars)
-        mkForallFVars params type
-      pure { ctor with type := type }
-    pure { indType with ctors := ctors }
+    --let type := indType.type
+    let type ← forallBoundedTelescope indType.type numParams fun params type => do
+      let type := type.replace fun e =>
+        if !e.isFVar then none
+        else match indFVar2Const.find? e with
+             | none   => none
+             | some c => mkAppN c (params.extract 0 numVars)
+      mkForallFVars params type
+    pure { indType with type := type }
 
 def mkCtor2InferMod (views : Array InductiveView) : Ctor2InferMod :=
   views.foldl (init := {}) fun m view =>
