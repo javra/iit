@@ -49,12 +49,16 @@ def elabIIT (elems : Array Syntax) : CommandElabM Unit := do
   let view0 := views[0]
   runTermElabM view0.declName fun vars => do
     withRef view0.ref do
+      -- Elaborate IITs without declaring them (kernel would reject)
       let pr ← preElabViews vars views
+      -- Calculate and declare type erasure
       let eits := erase pr.its
       let epr := { pr with its := eits }
       declareInductiveTypes views epr
+      -- Calculate and declare wellformedness predicate as an inductively defined proposition
       let wits := wellf pr.its eits
       let wpr := { pr with its := wits }
+      --throwError ((wits.get! 0).ctors.get! 0).type
       declareInductiveTypes views wpr
 
 end IITElab
@@ -94,7 +98,9 @@ end IIT
 mutual
 
 iit Con : Type where
---| nil : Con
+| nil : Con
+| foo : ∀ (n : Nat), Con
+| bla : ∀ (Γ Δ : Con), Con
 --| ext : ∀ (Γ : Con), Ty Γ → Con
 
 iit Ty : Con → Type where
@@ -103,8 +109,11 @@ iit Ty : Con → Type where
 
 iit Tm : (Γ : Con) → Ty Γ → Type where
 
-iit Foo : Type where
- 
+iit Foo : Nat → Type where
+| bar : Foo 5
 end
 
-#check @Ty.w
+-- Foo 5 -----> Foo.bar.w : Foo.w 5 Foo.bar.E
+-- Nat -> Con -----> Con.foo.w : (n : Nat) → Con.w (Con.foo.E n)
+
+#check @Con.bla.w

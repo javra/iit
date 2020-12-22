@@ -275,4 +275,10 @@ def mkAuxConstructions (views : Array InductiveView) : TermElabM Unit := do
     if hasUnit && hasProd then mkBRecOn n
     if hasUnit && hasProd then mkBInductionOn n
 
+instance : Inhabited InductiveType :=
+⟨{ name := arbitrary, type := arbitrary, ctors := arbitrary }⟩
+
+instance : Inhabited Constructor :=
+⟨{ name := arbitrary, type := arbitrary }⟩
+
 end IIT
