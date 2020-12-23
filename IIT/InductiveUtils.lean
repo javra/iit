@@ -33,6 +33,7 @@ def inductiveSyntaxToView (decl : Syntax) : CommandElabM InductiveView := do
               binders := binders,
               type? := type? : CtorView }
     | none      => throwError "Give all constructor types for an IIT declartion!"
+  let classes ← getOptDerivingClasses decl[5]
   pure { ref           := decl,
          modifiers     := { },
          shortDeclName := name,
@@ -40,7 +41,8 @@ def inductiveSyntaxToView (decl : Syntax) : CommandElabM InductiveView := do
          levelNames    := levelNames,
          binders       := binders,
          type?         := some type,
-         ctors         := ctors : InductiveView }
+         ctors         := ctors,
+         derivingClasses := classes : InductiveView }
 
 def getResultingType (e : Expr) : TermElabM Expr :=
   forallTelescopeReducing e fun _ r => pure r
@@ -257,21 +259,20 @@ def updateResultingUniverse (numParams : Nat) (indTypes : List InductiveType) : 
 def checkResultingUniverses (indTypes : List InductiveType) : TermElabM Unit := do
   checkResultingUniverse (← getResultingUniverse indTypes)
 
-def mkAuxConstructions (views : Array InductiveView) : TermElabM Unit := do
+-- Adapted to only take names instead of views
+def mkAuxConstructions (viewNames : List Name) : TermElabM Unit := do
   let env ← getEnv
   let hasEq   := env.contains `Eq
   let hasHEq  := env.contains `HEq
   let hasUnit := env.contains `PUnit
   let hasProd := env.contains `Prod
-  for view in views do
-    let n := view.declName
+  for n in viewNames do
     mkRecOn n
     if hasUnit then mkCasesOn n
     if hasUnit && hasEq && hasHEq then mkNoConfusion n
     if hasUnit && hasProd then mkBelow n
     if hasUnit && hasProd then mkIBelow n
-  for view in views do
-    let n := view.declName;
+  for n in viewNames do
     if hasUnit && hasProd then mkBRecOn n
     if hasUnit && hasProd then mkBInductionOn n
 

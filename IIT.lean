@@ -38,7 +38,7 @@ def declareInductiveTypes (views : Array InductiveView) (pr : PreElabResult) : T
   let decl := Declaration.inductDecl pr.levelParams pr.numParams pr.its pr.isUnsafe
   Term.ensureNoUnassignedMVars decl
   addDecl decl
-  --mkAuxConstructions views TODO maybe call this with updated views, that just replace name?s
+  mkAuxConstructions (pr.its.map InductiveType.name)
   --throwErrorAt view0.ref $ "Created types ".append (pr.its.map (λ it => it.name)).toString
   for view in views do
         Term.applyAttributesAt view.declName view.modifiers.attrs AttributeApplicationTime.afterTypeChecking
@@ -119,4 +119,4 @@ end
 -- Nat -> Con        -----> Con.foo.w : (n : Nat) → Con.w (Con.foo.E n)
 -- (Γ : Con) -> Ty Γ -----> Ty.U.w : (Γ.e : Con.E) -> Con.w Γ -> Ty.w Γ.e Ty.U.E
 
-#check @Foo.baz.w
+#check Con.E.noConfusion
