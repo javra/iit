@@ -99,13 +99,13 @@ mutual
 
 iit Con : Type where
 | nil : Con
---| foo : (n : Nat) → Con
---| bla : (Γ Δ : Con) → Con
---| ext : ∀ (Γ : Con), Ty Γ → Con
+| foo : (n : Nat) → Con
+| bla : (Γ Δ : Con) → Con
+| ext : ∀ (Γ : Con), Ty Γ → Con
 
 iit Ty : Con → Type where
 | U' : Ty Con.nil
---| U : (Γ Δ : Con) → Ty Δ
+| U : (Γ Δ : Con) → Ty Δ
 --| pi : ∀ (Γ : Con) (A : Ty Γ) (B : Ty (Con.ext Γ A)), Ty Γ
 
 iit Tm : (Γ : Con) → Ty Γ → Type where
@@ -119,4 +119,4 @@ end
 -- Nat -> Con        -----> Con.foo.w : (n : Nat) → Con.w (Con.foo.E n)
 -- (Γ : Con) -> Ty Γ -----> Ty.U.w : (Γ.e : Con.E) -> Con.w Γ -> Ty.w Γ.e Ty.U.E
 
-#check Con.E.recOn
+#check Ty.U'.w

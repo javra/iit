@@ -37,18 +37,24 @@ match e with
 | app f e d       => mkApp (wellfHeader i f) e
 | _ => e
 
-def addWIfHeader (n : Name) (ct : Name) (l : List Level) : Expr :=
+def addWIfHeader (n : Name) (l : List Level) : Expr :=
 if contains (collectHeaderNames its) n then mkConst (n ++ wellfSuffix) l
+else mkConst n l
+
+def addEIfCtor (n : Name) (l : List Level) : Expr :=
+let ctorss := its.map (λ it => it.ctors)
+if ctorss.any (λ ctors => (ctors.map Constructor.name).contains n) then mkConst (n ++ erasureSuffix) l
 else mkConst n l
 
 def wellfCtorTm (i : Nat) (name : Name) (e : Expr) : Expr :=
 match e with
-| app f (bvar n d) d' => mkApp (wellfCtorTm i name f) (mkBVar n)
+| app f (bvar n d) d'    => mkApp (wellfCtorTm i name f) (mkBVar n)
+| app f (const n l d) d' => mkApp (wellfCtorTm i name f) (addEIfCtor its n l)
 | app f e d =>
   match headerAppIdx? its e with -- TODO not e but the _type_ of e
   | some j => mkApp (wellfCtorTm i name f) (mkConst $ (eits.get! j).name) --TODO change
   | none   => mkApp (wellfCtorTm i name f) e
-| const n l d => addWIfHeader its n name l
+| const n l d => addWIfHeader its n l
 | _ => e
 
 partial def wellfCtor (i : Nat) (name : Name) (e : Expr) (eref : Expr := mkConst (name ++ erasureSuffix)) : Expr :=
