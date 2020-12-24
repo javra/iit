@@ -76,16 +76,21 @@ def collectLevelParamsInInductive (indTypes : List InductiveType) : Array Name :
       collectLevelParams usedParams ctor.type
   usedParams.params
 
-def mkIndFVar2Const (views : Array InductiveView) (indFVars : Array Expr) (levelNames : List Name) : ExprMap Expr :=
+--modified to also map free variables of constructors
+def mkIndFVar2Const (views : Array InductiveView) (indFVars : Array Expr) (ctorFVars : Array (Array Expr)) 
+  (levelNames : List Name) : ExprMap Expr :=
   let levelParams := levelNames.map mkLevelParam;
   views.size.fold (init := {}) fun i (m : ExprMap Expr) =>
     let view    := views[i]
     let indFVar := indFVars[i]
-    m.insert indFVar (mkConst view.declName levelParams)
+    let m' := m.insert indFVar (mkConst view.declName levelParams)
+    views[i].ctors.size.fold (init := m') fun j (m : ExprMap Expr) =>
+      m.insert ctorFVars[i][j] (mkConst view.ctors[j].declName levelParams)
 
-def replaceIndFVarsWithConsts (views : Array InductiveView) (indFVars : Array Expr) (levelNames : List Name)
-    (numVars : Nat) (numParams : Nat) (indTypes : List InductiveType) : TermElabM (List InductiveType) :=
-  let indFVar2Const := mkIndFVar2Const views indFVars levelNames
+--modified to also replace free variables of constructors
+def replaceIndFVarsWithConsts (views : Array InductiveView) (indFVars : Array Expr) (ctorFVars : Array (Array Expr))
+    (levelNames : List Name) (numVars : Nat) (numParams : Nat) (indTypes : List InductiveType) : TermElabM (List InductiveType) :=
+  let indFVar2Const := mkIndFVar2Const views indFVars ctorFVars levelNames
   indTypes.mapM fun indType => do
     let ctors ← indType.ctors.mapM fun ctor => do
       let type ← forallBoundedTelescope ctor.type numParams fun params type => do
@@ -99,11 +104,11 @@ def replaceIndFVarsWithConsts (views : Array InductiveView) (indFVars : Array Ex
       pure { ctor with type := type }
     pure { indType with ctors := ctors }
 
-def replaceHeaderIndFVarsWithConsts (views : Array InductiveView) (indFVars : Array Expr) (levelNames : List Name)
-  (numVars : Nat) (numParams : Nat) (indTypes : List InductiveType) : TermElabM (List InductiveType) :=
-  let indFVar2Const := mkIndFVar2Const views indFVars levelNames
+--replace free variables in headers
+def replaceHeaderIndFVarsWithConsts (views : Array InductiveView) (indFVars : Array Expr) (ctorFVars : Array (Array Expr)) 
+  (levelNames : List Name) (numVars : Nat) (numParams : Nat) (indTypes : List InductiveType) : TermElabM (List InductiveType) :=
+  let indFVar2Const := mkIndFVar2Const views indFVars ctorFVars levelNames
   indTypes.mapM fun indType => do
-    --let type := indType.type
     let type ← forallBoundedTelescope indType.type numParams fun params type => do
       let type := type.replace fun e =>
         if !e.isFVar then none
