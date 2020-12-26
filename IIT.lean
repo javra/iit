@@ -104,9 +104,9 @@ iit Con : Type where
 | ext : (Γ : Con) → (A : Ty Γ) → Con
 
 iit Ty : Con → Type where
---| U' : Ty Con.nil
---| U : (Γ Δ : Con) → Ty Δ
---| pi : ∀ (Γ : Con) (A : Ty Γ) (B : Ty (Con.ext Γ A)), Ty Γ
+| U' : Ty Con.nil
+| U : (Γ Δ : Con) → Ty Δ
+| pi : ∀ (Γ : Con) (A : Ty Γ) (B : Ty (Con.ext Γ A)), Ty Γ
 
 iit Tm : (Γ : Con) → Ty Γ → Type where
 
@@ -118,8 +118,4 @@ iit Foo : Nat → Nat → Type where
 | baz : (m n : Nat) → (p : Foo n m) → Foo m n
 end
 
--- Foo 5             -----> Foo.bar.w : Foo.w 5 Foo.bar.E
--- Nat -> Con        -----> Con.foo.w : (n : Nat) → Con.w (Con.foo.E n)
--- (Γ : Con) -> Ty Γ -----> Ty.U.w : (Γ.e : Con.E) -> Con.w Γ -> Ty.w Γ.e Ty.U.E
-
-#check Foo.baz.w
+#check Ty.pi.w
