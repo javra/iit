@@ -101,22 +101,25 @@ iit Con : Type where
 | nil : Con
 | foo : (n : Nat) → Con
 | bla : (Γ Δ : Con) → Con
-| ext : ∀ (Γ : Con), Ty Γ → Con
+| ext : (Γ : Con) → (A : Ty Γ) → Con
 
 iit Ty : Con → Type where
-| U' : Ty Con.nil
-| U : (Γ Δ : Con) → Ty Δ
+--| U' : Ty Con.nil
+--| U : (Γ Δ : Con) → Ty Δ
 --| pi : ∀ (Γ : Con) (A : Ty Γ) (B : Ty (Con.ext Γ A)), Ty Γ
 
 iit Tm : (Γ : Con) → Ty Γ → Type where
 
-iit Foo : Nat → Type where
-| bar : Foo 5
-| baz : (m n : Nat) → Foo m
+iit Subb : Con → Con → Type where
+| swap : (Δ Γ : Con) → (A : Subb Γ Δ) → Subb Δ Γ
+
+iit Foo : Nat → Nat → Type where
+| bar : Foo 5 3
+| baz : (m n : Nat) → (p : Foo n m) → Foo m n
 end
 
 -- Foo 5             -----> Foo.bar.w : Foo.w 5 Foo.bar.E
 -- Nat -> Con        -----> Con.foo.w : (n : Nat) → Con.w (Con.foo.E n)
 -- (Γ : Con) -> Ty Γ -----> Ty.U.w : (Γ.e : Con.E) -> Con.w Γ -> Ty.w Γ.e Ty.U.E
 
-#check Ty.U'.w
+#check Foo.baz.w

@@ -49,7 +49,7 @@ else mkConst n l
 def wellfCtorTm (i : Nat) (name : Name) (e : Expr) : Expr :=
 match e with
 | app f (bvar n d) d'    => mkApp (wellfCtorTm i name f) (mkBVar n)
-| app f (const n l d) d' => mkApp (wellfCtorTm i name f) (addEIfCtor its n l)
+--| app f (const n l d) d' => mkApp (wellfCtorTm i name f) (addEIfCtor its n l)
 | app f e d =>
   match headerAppIdx? its e with -- TODO not e but the _type_ of e
   | some j => mkApp (wellfCtorTm i name f) (mkConst $ (eits.get! j).name) --TODO change
@@ -62,7 +62,9 @@ match e with
 | forallE n t b d =>
   match headerAppIdx? its t with
   | some j => mkForall (n ++ "e") BinderInfo.default (mkConst $ (eits.get! j).name) $
-                mkForall (n ++ "w") b.binderInfo (mkApp (mkConst $ (its.get! j).name ++ wellfSuffix) (mkBVar 0)) $
+                --mkForall (n ++ "w") b.binderInfo (mkApp (mkConst $ (its.get! j).name ++ wellfSuffix) (mkBVar 0)) $
+                mkForall (n ++ "w") b.binderInfo 
+                  (mkApp (liftLooseBVars (wellfCtorTm its eits i name t) 0 1) (mkBVar 0)) $
                   wellfCtor i name (liftLooseBVars b 0 1) (mkApp (liftLooseBVars eref 0 2) (mkBVar 1))
   | none   => mkForall n e.binderInfo t $ 
                 wellfCtor i name b (mkApp (liftLooseBVars eref 0 1) (mkBVar 0))
