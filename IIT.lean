@@ -5,6 +5,7 @@ import IIT.InductiveUtils
 import IIT.PreElab
 import IIT.Erasure
 import IIT.Wellformedness
+import IIT.Sigma
 
 namespace IIT
 
