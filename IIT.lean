@@ -111,7 +111,7 @@ iit Ty : (Γ : Con) → Type where
 | U : (Γ Δ : Con) → Ty Δ
 | pi : ∀ (Γ : Con) (A : Ty Γ) (B : Ty (Con.ext Γ A)), Ty Γ
 
---iit Tm : (Γ : Con) → Ty Γ → Type where
+iit Tm : (Γ : Con) → (A : Ty Γ) → Type where
 --| El : Tm Con.nil Ty.U'
 
 iit Subb : (Δ Γ : Con) → Type where
@@ -123,6 +123,6 @@ iit Foo : (m n : Nat) → Type where
 
 end
 
--- (Γ : Con)(A : Ty Γ) → Type -------------> λ Γ A => PSigma Tm.E (Tm.w Γ.1 A.1)
+-- (Γ : Con)(A : Ty Γ) → Type -------------> λ (Γ : Con) (A : Ty Γ) => PSigma Tm.E (Tm.w Γ.1 A.1)
 
-#reduce Foo
+#reduce Tm

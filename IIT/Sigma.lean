@@ -26,26 +26,22 @@ match e with
 def mkSigma (l : Level) (α β : Expr) : Expr :=
 mkApp (mkApp (mkConst `PSigma [l, levelZero]) α) β
 
-def mkFst (l : Level) (x : Expr) : TermElabM Expr := mkProj `PSigma 0 x
+def mkFst (l : Level) (x : Expr) : Expr := mkProj `PSigma 0 x
 
-def sigmaHeaderTmS (i : Nat) (e : Expr) : Expr :=
-e
-
-def sigmaHeader (i : Nat) (e : Expr := (its.get! i).type) (wref := mkConst (wits.get! i).name) : TermElabM Expr :=
+def sigmaHeader (i : Nat) (e : Expr := (its.get! i).type) (wref := mkConst (wits.get! i).name) : Expr :=
 match e with
-| sort l d => mkSigma l (mkConst (eits.get! i).name) wref
+| sort l d        => mkSigma l (mkConst (eits.get! i).name) wref
 | forallE n t b d => 
   match headerAppIdx? its t with
-  | some j => do let jref := mkConst $ (its.get! j).name;
-                 let jfst ← mkFst (resultingLevel $ (its.get! j).type) (mkBVar 0)
-                 let wref ← liftLooseBVars wref 0 1
-                 let b ← sigmaHeader i b (mkApp wref jfst)
-                 return mkLambda n e.binderInfo jref b
-  | none   => do let wref ← liftLooseBVars wref 0 1
-                 let b ← sigmaHeader i b (mkApp wref (mkBVar 0))
-                 mkLambda n e.binderInfo t b
-| app f e d => return mkApp (← sigmaHeader i f) e
-| _ => e
+  | some j => let jfst := mkFst (resultingLevel $ (its.get! j).type) (mkBVar 0)
+              let wref := liftLooseBVars wref 0 1
+              let b := sigmaHeader i b (mkApp wref jfst)
+              mkLambda n e.binderInfo t b
+  | none   => let wref := liftLooseBVars wref 0 1
+              let b := sigmaHeader i b (mkApp wref (mkBVar 0))
+              mkLambda n e.binderInfo t b
+| app f e d       => return mkApp (← sigmaHeader i f) e
+| _               => e
 
 partial def sigmaDecls (i : Nat := 0) (decls : List Declaration := []) : TermElabM $ List Declaration :=
 if i >= its.length then return decls else
