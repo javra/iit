@@ -59,8 +59,10 @@ def elabIIT (elems : Array Syntax) : CommandElabM Unit := do
       -- Calculate and declare wellformedness predicate as an inductively defined proposition
       let wits := wellf pr.its eits
       let wpr := { pr with its := wits }
-      --throwError ((wits.get! 0).ctors.get! 0).type
       declareInductiveTypes views wpr
+      -- Calculate sigma construction and declare it
+      let sigmaDecls ← sigmaDecls pr.its eits wits
+      sigmaDecls.toArray.forM addDecl
 
 end IITElab
 
@@ -94,7 +96,7 @@ end IIT
 
 --set_option trace.Elab true
 --set_option syntaxMaxDepth 10
---set_option pp.raw true
+set_option pp.raw true
 
 mutual
 
@@ -104,19 +106,23 @@ iit Con : Type where
 | bla : (Γ Δ : Con) → Con
 | ext : (Γ : Con) → (A : Ty Γ) → Con
 
-iit Ty : Con → Type where
+iit Ty : (Γ : Con) → Type where
 | U' : Ty Con.nil
 | U : (Γ Δ : Con) → Ty Δ
 | pi : ∀ (Γ : Con) (A : Ty Γ) (B : Ty (Con.ext Γ A)), Ty Γ
 
-iit Tm : (Γ : Con) → Ty Γ → Type where
+--iit Tm : (Γ : Con) → Ty Γ → Type where
+--| El : Tm Con.nil Ty.U'
 
-iit Subb : Con → Con → Type where
-| swap : (Δ Γ : Con) → (A : Subb Γ Δ) → Subb Δ Γ
+iit Subb : (Δ Γ : Con) → Type where
+--| swap : (Δ Γ : Con) → (A : Subb Γ Δ) → Subb Δ Γ
 
-iit Foo : Nat → Nat → Type where
-| bar : Foo 5 3
-| baz : (m n : Nat) → (p : Foo n m) → Foo m n
+iit Foo : (m n : Nat) → Type where
+--| bar : Foo 5 3
+--| baz : (m n : Nat) → (p : Foo n m) → Foo m n
+
 end
 
-#check Ty.pi.w
+-- (Γ : Con)(A : Ty Γ) → Type -------------> λ Γ A => PSigma Tm.E (Tm.w Γ.1 A.1)
+
+#reduce Foo
