@@ -49,7 +49,7 @@ def sigmaCtorTmS (e : Expr) (eref wref : Expr) : TermElabM Expr := do
 match e with
 | app f e d   => sigmaCtorTmS f eref wref
 | const n l d => mkPair eref wref
-| _ => e
+| _           => e
 
 --sigmaCtor _ e should have type e
 def sigmaCtor (ctorName : Name) (e : Expr)
@@ -64,10 +64,10 @@ match e with
   | none   => let eref := mkApp (liftLooseBVars eref 0 1) (mkBVar 0)
               let wref := mkApp (liftLooseBVars wref 0 1) (mkBVar 0)
               return mkLambda n e.binderInfo t $ ← sigmaCtor ctorName b eref wref
-| _ => sigmaCtorTmS e eref wref --"El" Case
+| _ => sigmaCtorTmS e eref wref --"El" Case TODO mkpair goes here
 
-partial def sigmaDecls (i : Nat := 0) (decls : List Declaration := []) : TermElabM $ List Declaration :=
-if i >= its.length then return decls else
+partial def sigmaDecls (i : Nat := 0) (hDecls ctorDecls : List Declaration := []) : TermElabM $ List Declaration :=
+if i >= its.length then return hDecls ++ ctorDecls else
 do let hr ← sigmaHeader its eits wits i
    let it := its.get! i
    let type := it.type
@@ -85,6 +85,6 @@ do let hr ← sigmaHeader its eits wits i
                                       type     := type,
                                       hints    := arbitrary,
                                       isUnsafe := false };
-    sigmaDecls (i + 1) (decls ++ [decl] ++ ctors)
+    sigmaDecls (i + 1) (hDecls ++ [decl]) (ctorDecls ++ ctors)
 
 end IIT
