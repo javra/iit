@@ -98,31 +98,29 @@ end IIT
 --set_option syntaxMaxDepth 10
 set_option pp.raw true
 
-mutual
+mutual 
 
 iit Con : Type where
 | nil : Con
-| foo : (n : Nat) → Con
+| foo : (b : Bool) → (n : Nat) → Con
 | bla : (Γ Δ : Con) → Con
-| ext : (Γ : Con) → (A : Ty Γ) → Con
+--| ext : (Γ : Con) → (A : Ty Γ) → Con
 
 iit Ty : (Γ : Con) → Type where
 | U' : Ty Con.nil
 | U : (Γ Δ : Con) → Ty Δ
-| pi : ∀ (Γ : Con) (A : Ty Γ) (B : Ty (Con.ext Γ A)), Ty Γ
+--| pi : ∀ (Γ : Con) (A : Ty Γ) (B : Ty (Con.ext Γ A)), Ty Γ
 
 iit Tm : (Γ : Con) → (A : Ty Γ) → Type where
---| El : Tm Con.nil Ty.U'
+| El : Tm Con.nil Ty.U'
 
 iit Subb : (Δ Γ : Con) → Type where
---| swap : (Δ Γ : Con) → (A : Subb Γ Δ) → Subb Δ Γ
+| swap : (Δ Γ : Con) → (A : Subb Γ Δ) → Subb Δ Γ
 
 iit Foo : (m n : Nat) → Type where
---| bar : Foo 5 3
---| baz : (m n : Nat) → (p : Foo n m) → Foo m n
+| bar : Foo 5 3
+| baz : (m n : Nat) → (p : Foo n m) → Foo m n
 
 end
 
--- (Γ : Con)(A : Ty Γ) → Type -------------> λ (Γ : Con) (A : Ty Γ) => PSigma Tm.E (Tm.w Γ.1 A.1)
-
-#reduce Tm
+#reduce Ty.U
