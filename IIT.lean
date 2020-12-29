@@ -6,6 +6,7 @@ import IIT.PreElab
 import IIT.Erasure
 import IIT.Wellformedness
 import IIT.Sigma
+import IIT.Relation
 
 namespace IIT
 
@@ -63,6 +64,8 @@ def elabIIT (elems : Array Syntax) : CommandElabM Unit := do
       -- Calculate sigma construction and declare it
       let sigmaDecls ← sigmaDecls pr.its eits wits
       sigmaDecls.toArray.forM addDecl
+      withMotives pr.its (pr.its.map fun _ => levelZero) fun fVars =>
+        throwError "foo"
 
 end IITElab
 
