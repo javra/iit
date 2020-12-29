@@ -64,8 +64,8 @@ def elabIIT (elems : Array Syntax) : CommandElabM Unit := do
       -- Calculate sigma construction and declare it
       let sigmaDecls ← sigmaDecls pr.its eits wits
       sigmaDecls.toArray.forM addDecl
-      withMotives pr.its (pr.its.map fun _ => levelZero) fun fVars =>
-        throwError "foo"
+      withMotives pr.its (pr.its.map fun _ => levelZero) fun fVars => do
+        throwError $ ← fVars.mapM (fun fv => inferType fv)
 
 end IITElab
 

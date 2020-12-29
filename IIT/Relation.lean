@@ -19,13 +19,21 @@ variables (its : List InductiveType) (ls : List Level)
 
 def motiveSuffix : Name := "m"
 
-def motive (l : Level) (fVars : Array Expr) (e : Expr) (ref : Expr) : Expr :=
+
+def motiveAux (t : Expr) (terminal : Expr) :=
+match t with
+| app f e d => mkApp (motiveAux f terminal) e
+| _         => terminal
+
+partial def motive (l : Level) (fVars : Array Expr) (e : Expr) (ref : Expr) : Expr :=
 match e with
 | forallE n t b d =>
    match headerAppIdx? its t with
-  | some j => mkForall n BinderInfo.implicit (mkConst (its.get! j).name) $
-              mkForall (n ++ "m") e.binderInfo (mkApp fVars[j] $ mkBVar 0) $ -- ??
-              motive l fVars b (mkApp (liftLooseBVars ref 0 2) (mkBVar 0))
+  | some j => let b := liftLooseBVars b 0 1
+              let t' := liftLooseBVars t 0 1
+              mkForall n BinderInfo.implicit t $
+              mkForall (n ++ "m") e.binderInfo (mkApp (motiveAux t fVars[j]) $ mkBVar 0) $ -- ??
+              motive l fVars b (mkApp (liftLooseBVars ref 0 2) (mkBVar 1))
   | none   => mkForall n e.binderInfo t $
               motive l fVars b (mkApp (liftLooseBVars ref 0 1) (mkBVar 0))
 | sort l' d       => mkForall "x" BinderInfo.default ref (mkSort l) --TODO name
