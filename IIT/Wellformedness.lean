@@ -58,7 +58,8 @@ match e with
 | const n l d => addWIfHeader its n l
 | _           => e
 
-partial def wellfCtor (i : Nat) (name : Name) (e : Expr) (eref : Expr := mkConst (name ++ erasureSuffix)) : Expr :=
+partial def wellfCtor (i : Nat) (name : Name) (e : Expr)
+  (eref : Expr := mkConst (name ++ erasureSuffix)) : Expr :=
 match e with
 | forallE n t b d =>
   match headerAppIdx? its t with
