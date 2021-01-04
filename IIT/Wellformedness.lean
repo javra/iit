@@ -20,10 +20,23 @@ section
 
 variables (its eits : List InductiveType)
 
+--TODO move the next three defs into some util file
 def headerAppIdx? (e : Expr) : Option Nat :=
 match e with
 | const n l d => getIdx? (collectHeaderNames its) n
 | app f e d   => headerAppIdx? f
+| _           => none
+
+partial def ctorAppIdx?Aux (n : Name) (i := 0) : Option (Nat × Nat) :=
+if i >= its.length then none else
+match getIdx? ((its.get! i).ctors.toArray.map Constructor.name) n with
+| some j => some (i, j)
+| none   => ctorAppIdx?Aux n (i + 1)
+
+def ctorAppIdx? (e : Expr) : Option (Nat × Nat) :=
+match e with
+| const n l d => ctorAppIdx?Aux its n
+| app f e d   => ctorAppIdx? f
 | _           => none
 
 def wellfHeader (i : Nat) (e : Expr := (its.get! i).type) : Expr :=

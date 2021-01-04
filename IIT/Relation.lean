@@ -40,22 +40,32 @@ match e with
 | _ => e
 
 section
-variables (motives : Array Expr)
+variables (methods : Array (Array Expr)) (motives : Array Expr)
+
+/- We invoke a dirty, dirty hack here:
+   We hand on one version `em` of the expression where loose BVars refer to the model and one `e`
+   where they refer to the syntax. -/
+def methodTmP (e em : Expr) : Expr :=
+match e with
+| app f e d => let fm := appFn! em
+               let em := appArg! em
+               mkApp (mkApp (methodTmP f fm) e) em
+| _           =>
+  match ctorAppIdx? its em with
+  | some (i, j) => methods[i][j]
+  | none        => em
 
 def methodTmS (e : Expr) (em : Expr) : Expr :=
 match e with
 | app f e d => let fm := appFn! em
                let em := appArg! em
-               mkApp (mkApp (methodTmS f fm) e) em
+               mkApp (mkApp (methodTmS f fm) e) (methodTmP its methods e em)
 | const n l d =>
   match headerAppIdx? its e with
   | some j => motives[j]
   | none   => e
 | _ => e
 
-/- We invoke a dirty, dirty hack here:
-   We hand on one version `em` of the expression where loose BVars refer to the model and one `e`
-   where they refer to the syntax. -/
 partial def method (name : Name) (e : Expr) (em : Expr := e) (ref := mkConst name) : Expr :=
 match e with
 | forallE n t b d =>
@@ -65,12 +75,12 @@ match e with
               let b' := liftLooseBVars b 0 1
               mkForall n BinderInfo.implicit t $
               mkForall (n ++ "m") e.binderInfo 
-                (mkApp (methodTmS its motives t' t) $ mkBVar 0) $
+                (mkApp (methodTmS its methods motives t' t) $ mkBVar 0) $
               method name b' b ref
   | none   => let ref := mkApp (liftLooseBVars ref 0 1) $ mkBVar 0
               mkForall n e.binderInfo t $
               method name b b ref
-| _ => mkApp (methodTmS its motives e em) ref
+| _ => mkApp (methodTmS its methods motives e em) ref
 
 end
 
@@ -83,19 +93,20 @@ let type := motive its (ls.get! i) fVars (its.get! i).type (mkConst (its.get! i)
 withLocalDeclD name type fun fVar => do
   withMotives x (i + 1) (fVars.push fVar)
 
-partial def withMethodsAux {α} (motives : Array Expr) (i : Nat) (x : Array Expr → TermElabM α)
+partial def withMethodsAux {α} (motives : Array Expr) 
+  (methods : Array (Array Expr)) (i : Nat) (x : Array Expr → TermElabM α)
   (j : Nat := 0) (fVars : Array Expr := #[]) : TermElabM α :=
 if j >= (its.get! i).ctors.length then x fVars else
 let ctor := (its.get! i).ctors.get! j
-let type := method its motives ctor.name ctor.type
+let type := method its methods motives ctor.name ctor.type
 let name := ctor.name ++ methodSuffix
 withLocalDeclD name type fun fVar => do
-  withMethodsAux motives i x (j + 1) (fVars.push fVar)
+  withMethodsAux motives methods i x (j + 1) (fVars.push fVar)
 
 partial def withMethods {α} (motives : Array Expr) (x : Array (Array Expr) → TermElabM α)
   (i : Nat := 0) (methods : Array (Array Expr) := #[]) : TermElabM α :=
 if i >= its.length then x methods else
-withMethodsAux its motives i fun fVars =>
+withMethodsAux its motives methods i fun fVars =>
   withMethods motives x (i + 1) (methods.push fVars)
 
 def withRecArgs {α} (x : Array Expr → Array (Array Expr) → TermElabM α) : TermElabM α :=
