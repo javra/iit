@@ -65,7 +65,7 @@ def elabIIT (elems : Array Syntax) : CommandElabM Unit := do
       let sigmaDecls ← sigmaDecls pr.its eits wits
       sigmaDecls.toArray.forM addDecl
       withRecArgs pr.its (pr.its.map fun _ => levelZero) fun motives methods => do
-        throwError $ ← methods[0].mapM (fun fv => inferType fv)
+        throwError $ ← methods[1].mapM (fun fv => inferType fv)
 
 end IITElab
 
