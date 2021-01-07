@@ -114,4 +114,31 @@ withMotives its ls fun motives =>
   withMethods its motives fun methods =>
     x motives methods
 
+section
+
+variables (motives : Array Expr) (methods : Array (Array Expr))
+
+def relationSuffix : Name := "r"
+
+
+def elimRelationHeader (i : Nat) (e : Expr := (its.get! i).type)
+  (sref : Expr := mkConst (its.get! i).name) (dref : Expr := motives[i]) : Expr :=
+match e with
+| sort l d => mkForall "s" BinderInfo.default sref $ 
+              mkForall "d" BinderInfo.default (liftLooseBVars dref 0 1) $
+              mkSort levelZero
+| forallE n t b d => e
+| _ => e
+
+partial def elimRelation (its : List InductiveType) (i : Nat := 0) (rits := []) : List InductiveType :=
+if i >= its.length then rits else
+let it := its.get! i
+let ctors := []
+let rit := { name  := it.name ++ relationSuffix,
+             type  := elimRelationHeader its motives i,
+             ctors := ctors : InductiveType }
+elimRelation its (i + 1) (rits.append [rit])
+
+end
+
 end IIT

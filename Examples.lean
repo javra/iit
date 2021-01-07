@@ -2,9 +2,9 @@ import IIT
 
 --set_option trace.Elab true
 --set_option syntaxMaxDepth 10
-set_option pp.raw true
+set_option pp.all true
 
-mutual 
+mutual
 
 iit Con : Type where
 | nil : Con
@@ -28,3 +28,5 @@ iit Foo : (m n : Nat) → Type where
 | baz : (m n : Nat) → (p : Foo n m) → Foo m n
 
 end
+
+example (Γ : Con.E) (W : Ty.w Γ Ty.U'.E) : Γ = Con.nil.E := by _

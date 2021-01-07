@@ -52,7 +52,7 @@ def elabIIT (elems : Array Syntax) : CommandElabM Unit := do
   runTermElabM view0.declName fun vars => do
     withRef view0.ref do
       -- Elaborate IITs without declaring them (kernel would reject)
-      let pr ← preElabViews vars views
+      let pr ← preElabViews vars views 
       -- Calculate and declare type erasure
       let eits := erase pr.its
       let epr := { pr with its := eits }
@@ -65,7 +65,10 @@ def elabIIT (elems : Array Syntax) : CommandElabM Unit := do
       let sigmaDecls ← sigmaDecls pr.its eits wits
       sigmaDecls.toArray.forM addDecl
       withRecArgs pr.its (pr.its.map fun _ => levelZero) fun motives methods => do
-        throwError $ ← methods[1].mapM (fun fv => inferType fv)
+        let rits := elimRelation motives pr.its
+        --throwError $ ← methods[1].mapM (fun fv => inferType fv)
+        let rpr := { pr with its := rits }
+        declareInductiveTypes views rpr
 
 end IITElab
 
