@@ -65,10 +65,12 @@ def elabIIT (elems : Array Syntax) : CommandElabM Unit := do
       let sigmaDecls ← sigmaDecls pr.its eits wits
       sigmaDecls.toArray.forM addDecl
       withRecArgs pr.its (pr.its.map fun _ => levelZero) fun motives methods => do
-        let rits := elimRelation motives pr.its
+        let rits ← elimRelation motives pr.its
+        --throwError $ (rits.get! 0).type
         --throwError $ ← methods[1].mapM (fun fv => inferType fv)
         let rpr := { pr with its := rits }
         declareInductiveTypes views rpr
+        --throwError $ rits.map (fun it => it.type)
 
 end IITElab
 
@@ -89,7 +91,7 @@ private def isIITMutual (stx : Syntax) : Bool :=
     let declKind := elem[0].getKind
     declKind == `«iit»
 
--- If all declarations in a mutual block are IITs, elab them,
+-- If all declarations in a mutual block are IITs, elab thwem,
 -- otherwise elab as before
 @[commandElab «mutual»] def elabIITMutual : CommandElab :=
 fun stx =>

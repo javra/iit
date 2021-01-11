@@ -27,6 +27,8 @@ iit Foo : (m n : Nat) → Type where
 | bar : Foo 5 3
 | baz : (m n : Nat) → (p : Foo n m) → Foo m n
 
+iit Blubb : (Γ Δ : Con) → (n : Nat) → (A : Ty Δ) → (B : Ty Γ) → Type where
+
 end
 
-example (Γ : Con.E) (W : Ty.w Γ Ty.U'.E) : Γ = Con.nil.E := by _
+#check Tm.r

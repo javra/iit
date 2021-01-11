@@ -20,22 +20,29 @@ variables (its : List InductiveType) (ls : List Level)
 def motiveSuffix : Name := "m"
 def methodSuffix : Name := "m"
 
-def motiveAux (t : Expr) (terminal : Expr) :=
+private def liftBVarsOne (e : Expr) : Expr := liftLooseBVars e 0 1
+private def liftBVarsTwo (e : Expr) : Expr := liftLooseBVars e 0 2
+
+def motiveAux (t tm terminal : Expr) :=
 match t with
-| app f e d => mkApp (motiveAux f terminal) e
+| app f e d => let fm := appFn! tm
+               let em := appArg! tm
+               mkApp (mkApp (motiveAux f fm terminal) e) em
 | _         => terminal
 
-partial def motive (l : Level) (fVars : Array Expr) (e : Expr) (ref : Expr) : Expr :=
+partial def motive (l : Level) (fVars : Array Expr) (e : Expr) (ref : Expr) (em : Expr := e) : Expr :=
 match e with
 | forallE n t b d =>
    match headerAppIdx? its t with
-  | some j => let b := liftLooseBVars b 0 1
-              --let t' := liftLooseBVars t 0 1
+  | some j => let b  := liftBVarsOne b
+              let t' := liftBVarsOne t
+              let tm := liftBVarsOne $ bindingDomain! em
+              let bm := bindingBody! em
               mkForall n BinderInfo.implicit t $
-              mkForall (n ++ "m") e.binderInfo (mkApp (motiveAux t fVars[j]) $ mkBVar 0) $ -- ??
-              motive l fVars b (mkApp (liftLooseBVars ref 0 2) (mkBVar 1))
+              mkForall (n ++ "m") e.binderInfo (mkApp (motiveAux t' tm fVars[j]) $ mkBVar 0) $
+              motive l fVars b (mkApp (liftBVarsTwo ref) (mkBVar 1)) bm
   | none   => mkForall n e.binderInfo t $
-              motive l fVars b (mkApp (liftLooseBVars ref 0 1) (mkBVar 0))
+              motive l fVars b (mkApp (liftBVarsOne ref) (mkBVar 0)) (bindingBody! em)
 | sort l' d       => mkForall "x" BinderInfo.default ref (mkSort l) --TODO name
 | _ => e
 
@@ -70,14 +77,14 @@ partial def method (name : Name) (e : Expr) (em : Expr := e) (ref := mkConst nam
 match e with
 | forallE n t b d =>
   match headerAppIdx? its t with
-  | some j => let ref := mkApp (liftLooseBVars ref 0 2) $ mkBVar 1
-              let t' := liftLooseBVars t 0 1
-              let b' := liftLooseBVars b 0 1
+  | some j => let ref := mkApp (liftBVarsTwo ref) $ mkBVar 1
+              let t' := liftBVarsOne t
+              let b' := liftBVarsOne b
               mkForall n BinderInfo.implicit t $
               mkForall (n ++ "m") e.binderInfo 
                 (mkApp (methodTmS its methods motives t' t) $ mkBVar 0) $
               method name b' b ref
-  | none   => let ref := mkApp (liftLooseBVars ref 0 1) $ mkBVar 0
+  | none   => let ref := mkApp (liftBVarsOne ref) $ mkBVar 0
               mkForall n e.binderInfo t $
               method name b b ref
 | _ => mkApp (methodTmS its methods motives e em) ref
@@ -120,22 +127,50 @@ variables (motives : Array Expr) (methods : Array (Array Expr))
 
 def relationSuffix : Name := "r"
 
-
-def elimRelationHeader (i : Nat) (e : Expr := (its.get! i).type)
-  (sref : Expr := mkConst (its.get! i).name) (dref : Expr := motives[i]) : Expr :=
+def elimRelationHeaderTmS (e em : Expr) : Expr :=
 match e with
-| sort l d => mkForall "s" BinderInfo.default sref $ 
-              mkForall "d" BinderInfo.default (liftLooseBVars dref 0 1) $
-              mkSort levelZero
-| forallE n t b d => e
+| app f e d   => let fm := appFn! em
+                 let em := appArg! em
+                 mkApp (mkApp (elimRelationHeaderTmS f fm) e) em
+| const n l d =>
+  match headerAppIdx? its e with
+  | some j => motives[j]
+  | none   => e
 | _ => e
 
-partial def elimRelation (its : List InductiveType) (i : Nat := 0) (rits := []) : List InductiveType :=
-if i >= its.length then rits else
+partial def elimRelationHeader (i : Nat) (e : Expr := (its.get! i).type) (em : Expr := e)
+  (sref : Expr := mkConst (its.get! i).name) (dref : Expr := motives[i]) : Expr :=
+match e with
+| sort _ _ => let dref := mkApp (liftBVarsOne dref) (mkBVar 0)
+              mkForall "s" BinderInfo.default sref $ 
+              mkForall "d" BinderInfo.default dref $
+              mkSort levelZero
+| forallE n t b _ =>
+  match headerAppIdx? its t with
+  | some j => let tm   := bindingDomain! em
+              let b    := liftBVarsOne b
+              let bm   := bindingBody! em
+              let td   := elimRelationHeaderTmS its motives (liftBVarsOne t) (liftBVarsOne tm)
+              let td   := mkApp td (mkBVar 0)
+              let sref := mkApp (liftBVarsTwo sref) (mkBVar 1)
+              let dref := mkApp (mkApp (liftBVarsTwo dref) (mkBVar 1)) (mkBVar 0) --TODO lift second dref?
+              mkForall n BinderInfo.implicit t $
+              mkForall (n ++ motiveSuffix) e.binderInfo td $
+              elimRelationHeader i b bm sref dref
+  | none   => let sref := mkApp (liftBVarsOne sref) (mkBVar 0)
+              let dref := mkApp (liftBVarsOne dref) (mkBVar 0)
+              mkForall n e.binderInfo t $
+              elimRelationHeader i b (bindingBody! em) sref dref
+| _ => e
+
+partial def elimRelation (its : List InductiveType) (i : Nat := 0) (rits := []) : MetaM $ List InductiveType :=
+if i >= its.length then rits else do
 let it := its.get! i
+let type := elimRelationHeader its motives i
+let type ← mkForallFVars motives type
 let ctors := []
 let rit := { name  := it.name ++ relationSuffix,
-             type  := elimRelationHeader its motives i,
+             type  := type,
              ctors := ctors : InductiveType }
 elimRelation its (i + 1) (rits.append [rit])
 

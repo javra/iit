@@ -1,9 +1,6 @@
 /- Construction of the initial IIT algebra -/
 
-import Lean.Elab
 import Init.Data.Array.Basic
-import IIT.InductiveUtils
-import IIT.Erasure
 import IIT.Wellformedness
 
 open Lean
