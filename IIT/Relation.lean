@@ -183,7 +183,7 @@ match e with
                  mkAppN t (motives ++ methods.concat)
 | _ => e
 
-partial def elimRelationCtor (e sref dref : Expr) : MetaM Expr := do
+partial def elimRelationCtor (e sref dref : Expr) (em := e) : MetaM Expr := do
 match e with
 | forallE n t b _ =>
   match headerAppIdx? its t with
@@ -194,16 +194,15 @@ match e with
               let sref := mkApp (liftBVarsThree sref) $ mkBVar 2
               let dref := mkApp (mkApp (liftBVarsThree dref) $ mkBVar 2) $ mkBVar 1
               let t'   := liftBVarsTwo t
-              let b'   := liftBVarsTwo b
               mkForall n e.binderInfo t $ -- syntax
               mkForall (n ++ methodSuffix) BinderInfo.implicit td $ -- method
               mkForall (n ++ relationSuffix) BinderInfo.default tr $ -- relation
-              ← elimRelationCtor b' sref dref
+              ← elimRelationCtor (liftBVarsTwo b) sref dref (liftBVarsOne b)
   | none   => let sref := mkApp (liftBVarsOne sref) $ mkBVar 0
               let dref := mkApp (liftBVarsOne dref) $ mkBVar 0
               mkForall n e.binderInfo t $
-              ← elimRelationCtor b sref dref
-| _ => let e ← elimRelationCtorTmS its motives methods e e
+              ← elimRelationCtor b sref dref b
+| _ => let e ← elimRelationCtorTmS its motives methods e em
        mkApp (mkApp e sref) dref
 
 private partial def elimRelationAux (i : Nat) (j : Nat := 0) (rctors := []) : MetaM $ List Constructor :=
