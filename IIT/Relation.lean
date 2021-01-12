@@ -62,7 +62,7 @@ match e with
   | some (i, j) => methods[i][j]
   | none        => em
 
-def methodTmS (e : Expr) (em : Expr) : TermElabM Expr := do
+def methodTmS (e : Expr) (em : Expr) : MetaM Expr := do
 match e with
 | app f e d =>
   let fm := appFn! em
@@ -78,7 +78,7 @@ match e with
   | none   => e
 | _ => e
 
-partial def method (name : Name) (e : Expr) (em : Expr := e) (ref := mkConst name) : TermElabM Expr := do
+partial def method (name : Name) (e : Expr) (em : Expr := e) (ref := mkConst name) : MetaM Expr := do
 match e with
 | forallE n t b d =>
   match headerAppIdx? its t with
@@ -151,7 +151,7 @@ match e with
               mkSort levelZero
 | forallE n t b _ =>
   match headerAppIdx? its t with
-  | some _ => let b'    := liftBVarsOne b
+  | some _ => let b'   := liftBVarsOne b
               let td   := elimRelationHeaderTmS its motives (liftBVarsOne t) t
               let td   := mkApp td (mkBVar 0)
               let sref := mkApp (liftBVarsTwo sref) (mkBVar 1)
@@ -159,8 +159,8 @@ match e with
               mkForall n BinderInfo.implicit t $
               mkForall (n ++ motiveSuffix) e.binderInfo td $
               elimRelationHeader b' sref dref
-  | none   => let sref := mkApp (liftBVarsOne sref) (mkBVar 0)
-              let dref := mkApp (liftBVarsOne dref) (mkBVar 0)
+  | none   => let sref := mkApp (liftBVarsOne sref) $ mkBVar 0
+              let dref := mkApp (liftBVarsOne dref) $ mkBVar 0
               mkForall n e.binderInfo t $
               elimRelationHeader b sref dref
 | _ => e
@@ -169,15 +169,41 @@ def addRIfHeader (n : Name) (l : List Level) : Expr :=
 if contains (collectHeaderNames its) n then mkConst (n ++ relationSuffix) l
 else mkConst n l
 
-def elimRelationCtorTmS (e : Expr) : MetaM Expr :=
+def elimRelationCtorTmS (e em : Expr) : MetaM Expr := do
 match e with
-| const n l _ => addRIfHeader its n l
+| app f e _   =>
+  let fm := appFn! em
+  let em := appArg! em            
+  let f_type := bindingDomain! $ ← inferType f
+  match headerAppIdx? its f_type with --TODO is this too shaky?
+  | some _ => let t := mkApp (← elimRelationCtorTmS f fm) e
+              mkApp t $ ← methodTmP its methods e em
+  | none   => mkApp (← elimRelationCtorTmS f fm) e
+| const n l _ => let t := addRIfHeader its n l
+                 mkAppN t (motives ++ methods.concat)
 | _ => e
 
 partial def elimRelationCtor (e sref dref : Expr) : MetaM Expr := do
 match e with
-| _ => let e ← elimRelationCtorTmS its e
-       let e := mkAppN e (motives ++ methods.concat)
+| forallE n t b _ =>
+  match headerAppIdx? its t with
+  | some j => let td ← methodTmS its methods motives (liftBVarsOne t) t
+              let td := mkApp td (mkBVar 0)
+              let tr ← elimRelationCtorTmS its motives methods (liftBVarsTwo t) (liftBVarsOne t)
+              let tr := mkApp (mkApp tr (mkBVar 1)) (mkBVar 0)
+              let sref := mkApp (liftBVarsThree sref) $ mkBVar 2
+              let dref := mkApp (mkApp (liftBVarsThree dref) $ mkBVar 2) $ mkBVar 1
+              let t'   := liftBVarsTwo t
+              let b'   := liftBVarsTwo b
+              mkForall n e.binderInfo t $ -- syntax
+              mkForall (n ++ methodSuffix) BinderInfo.implicit td $ -- method
+              mkForall (n ++ relationSuffix) BinderInfo.default tr $ -- relation
+              ← elimRelationCtor b' sref dref
+  | none   => let sref := mkApp (liftBVarsOne sref) $ mkBVar 0
+              let dref := mkApp (liftBVarsOne dref) $ mkBVar 0
+              mkForall n e.binderInfo t $
+              ← elimRelationCtor b sref dref
+| _ => let e ← elimRelationCtorTmS its motives methods e e
        mkApp (mkApp e sref) dref
 
 private partial def elimRelationAux (i : Nat) (j : Nat := 0) (rctors := []) : MetaM $ List Constructor :=

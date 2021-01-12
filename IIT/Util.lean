@@ -9,6 +9,8 @@ def liftBVarsOne (e : Expr) : Expr := liftLooseBVars e 0 1
 
 def liftBVarsTwo (e : Expr) : Expr := liftLooseBVars e 0 2
 
+def liftBVarsThree (e : Expr) : Expr := liftLooseBVars e 0 3
+
 end Expr
 
 end Lean
