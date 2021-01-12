@@ -61,28 +61,27 @@ else mkConst n l
 
 def wellfCtorTmP (e : Expr) : Expr :=
 match e with
-| const n l d => addEIfCtor its n l
-| app f e d   => mkApp (wellfCtorTmP f) e
+| const n l _ => addEIfCtor its n l
+| app f e _   => mkApp (wellfCtorTmP f) e
 | _           => e
 
-def wellfCtorTmS (i : Nat) (name : Name) (e : Expr) : Expr :=
+def wellfCtorTmS (e : Expr) : Expr :=
 match e with
-| app f e d'  => mkApp (wellfCtorTmS i name f) (wellfCtorTmP its e)
-| const n l d => addWIfHeader its n l
+| app f e _   => mkApp (wellfCtorTmS f) (wellfCtorTmP its e)
+| const n l _ => addWIfHeader its n l
 | _           => e
 
-partial def wellfCtor (i : Nat) (name : Name) (e : Expr)
-  (eref : Expr := mkConst (name ++ erasureSuffix)) : Expr :=
+partial def wellfCtor (e eref : Expr) : Expr :=
 match e with
 | forallE n t b d =>
   match headerAppIdx? its t with
   | some j => mkForall (n ++ "e") BinderInfo.default (mkConst $ (eits.get! j).name) $
-                mkForall (n ++ "w") b.binderInfo 
-                  (mkApp (liftLooseBVars (wellfCtorTmS its i name t) 0 1) (mkBVar 0)) $
-                  wellfCtor i name (liftLooseBVars b 0 1) (mkApp (liftLooseBVars eref 0 2) (mkBVar 1))
+              mkForall (n ++ "w") b.binderInfo 
+               (mkApp (liftLooseBVars (wellfCtorTmS its t) 0 1) (mkBVar 0)) $
+               wellfCtor (liftLooseBVars b 0 1) (mkApp (liftLooseBVars eref 0 2) (mkBVar 1))
   | none   => mkForall n e.binderInfo t $ 
-                wellfCtor i name b (mkApp (liftLooseBVars eref 0 1) (mkBVar 0))
-| _ => mkApp (wellfCtorTmS its i name e) eref -- this is the "El" case
+              wellfCtor b (mkApp (liftLooseBVars eref 0 1) (mkBVar 0))
+| _ => mkApp (wellfCtorTmS its e) eref -- this is the "El" case
 
 end
 
@@ -91,7 +90,7 @@ if i >= its.length then wits else
 let it  := its.get! i
 let ctors := it.ctors.map fun ctor =>
   { name := ctor.name ++ wellfSuffix,
-    type := wellfCtor its eits i ctor.name ctor.type : Constructor }
+    type := wellfCtor its eits ctor.type (mkConst (ctor.name ++ erasureSuffix)) : Constructor }
 let wit := { name  := it.name ++ wellfSuffix,
              type  := wellfHeader its eits i,
              ctors := ctors : InductiveType }

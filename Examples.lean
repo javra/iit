@@ -34,4 +34,4 @@ iit Plapp : (Γ Δ Δ': Con) → (A : Ty Γ) → Type where
 
 end
 
-#check @Con.r
+#check Con.r

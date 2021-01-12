@@ -134,10 +134,10 @@ def relationSuffix : Name := "r"
 
 def elimRelationHeaderTmS (e em : Expr) : Expr :=
 match e with
-| app f e d   => let fm := appFn! em
+| app f e _   => let fm := appFn! em
                  let em := appArg! em
                  mkApp (mkApp (elimRelationHeaderTmS f fm) e) em
-| const n l d =>
+| const n l _ =>
   match headerAppIdx? its e with
   | some j => motives[j]
   | none   => e
@@ -151,7 +151,7 @@ match e with
               mkSort levelZero
 | forallE n t b _ =>
   match headerAppIdx? its t with
-  | some j => let b'    := liftBVarsOne b
+  | some _ => let b'    := liftBVarsOne b
               let td   := elimRelationHeaderTmS its motives (liftBVarsOne t) t
               let td   := mkApp td (mkBVar 0)
               let sref := mkApp (liftBVarsTwo sref) (mkBVar 1)
@@ -165,13 +165,36 @@ match e with
               elimRelationHeader b sref dref
 | _ => e
 
+def addRIfHeader (n : Name) (l : List Level) : Expr :=
+if contains (collectHeaderNames its) n then mkConst (n ++ relationSuffix) l
+else mkConst n l
+
+def elimRelationCtorTmS (e : Expr) : MetaM Expr :=
+match e with
+| const n l _ => addRIfHeader its n l
+| _ => e
+
+partial def elimRelationCtor (e sref dref : Expr) : MetaM Expr := do
+match e with
+| _ => let e ← elimRelationCtorTmS its e
+       let e := mkAppN e (motives ++ methods.concat)
+       mkApp (mkApp e sref) dref
+
+private partial def elimRelationAux (i : Nat) (j : Nat := 0) (rctors := []) : MetaM $ List Constructor :=
+if j >= (its.get! i).ctors.length then rctors else do
+let ctor := (its.get! i).ctors.get! j
+let type ← elimRelationCtor its motives methods ctor.type (mkConst ctor.name) methods[i][j]
+let type ← mkForallFVars (motives ++ methods.concat) type
+elimRelationAux i (j + 1) $ rctors.append [{ name := ctor.name ++ relationSuffix,
+                                             type := type : Constructor }]
+
 partial def elimRelation (its : List InductiveType) (i : Nat := 0) (rits := []) : MetaM $ List InductiveType :=
 if i >= its.length then rits else do
 let it := its.get! i
 let type := elimRelationHeader its motives (its.get! i).type (mkConst (its.get! i).name) motives[i]
 let motivesAndMethods := motives ++ methods.concat
 let type ← mkForallFVars motivesAndMethods type
-let ctors := []
+let ctors ← elimRelationAux its motives methods i
 let rit := { name  := it.name ++ relationSuffix,
              type  := type,
              ctors := ctors : InductiveType }
