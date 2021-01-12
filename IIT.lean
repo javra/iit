@@ -63,10 +63,8 @@ def elabIIT (elems : Array Syntax) : CommandElabM Unit := do
       let sigmaDecls ← sigmaDecls pr.its eits wits
       sigmaDecls.toArray.forM addDecl
       withRecArgs pr.its (pr.its.map fun _ => levelZero) fun motives methods => do
-        let rits ← elimRelation motives pr.its
-        --throwError $ (rits.get! 0).type
-        --throwError $ ← methods[1].mapM (fun fv => inferType fv)
-        let rpr := { pr with its := rits, numParams := pr.numParams + motives.size }
+        let rits ← elimRelation motives methods pr.its
+        let rpr := { pr with its := rits, numParams := pr.numParams + motives.size + methods.concat.size }
         declareInductiveTypes views rpr
         --throwError $ rits.map (fun it => it.type)
 

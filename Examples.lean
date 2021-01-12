@@ -25,12 +25,13 @@ iit Subb : (Δ Γ : Con) → Type where
 
 iit Foo : (m n : Nat) → Type where
 | bar : Foo 5 3
-| baz : (m n : Nat) → (p : Foo n m) → Foo m n
+| baz : (m n : Nat) → /-(p : Foo n m) →-/ Foo m n
 
---iit Blubb : (Γ Δ : Con) → (n : Nat) → (A : Ty Δ) → (B : Ty Γ) → Type where
+iit Blubb : (Γ Δ : Con) → (n : Nat) → (A : Ty Δ) → (B : Ty Γ) → Type where
 
 iit Plapp : (Γ Δ Δ': Con) → (A : Ty Γ) → Type where
+| plapper : (Δ : Con) → Plapp Con.nil Δ Δ Ty.U'
 
 end
 
-#check Tm.r
+#check @Con.r

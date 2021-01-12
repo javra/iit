@@ -3,6 +3,7 @@
 import Lean.Elab
 import Init.Data.Array.Basic
 import IIT.InductiveUtils
+import IIT.Util
 import IIT.Erasure
 import IIT.Wellformedness
 
@@ -20,9 +21,6 @@ variables (its : List InductiveType) (ls : List Level)
 def motiveSuffix : Name := "m"
 def methodSuffix : Name := "m"
 
-private def liftBVarsOne (e : Expr) : Expr := liftLooseBVars e 0 1
-private def liftBVarsTwo (e : Expr) : Expr := liftLooseBVars e 0 2
-
 def motiveAux (fVars : Array Expr) (t tm : Expr) :=
 match t with
 | app f e d   => let fm := appFn! tm
@@ -34,20 +32,18 @@ match t with
   | none      => t
 | _           => t
 
-partial def motive (l : Level) (fVars : Array Expr) (e : Expr) (ref : Expr) (em : Expr := e) : Expr :=
+partial def motive (l : Level) (fVars : Array Expr) (e : Expr) (ref : Expr) : Expr :=
 match e with
 | forallE n t b d =>
    match headerAppIdx? its t with
   | some j => let b  := liftBVarsOne b
               let t' := liftBVarsOne t
-              let tm := bindingDomain! em
-              let bm := liftBVarsOne $ bindingBody! em
               mkForall n BinderInfo.implicit t $
-              mkForall (n ++ "m") e.binderInfo (mkApp (motiveAux its fVars t' tm) $ mkBVar 0) $
-              motive l fVars b (mkApp (liftBVarsTwo ref) (mkBVar 1)) bm
+              mkForall (n ++ "m") e.binderInfo (mkApp (motiveAux its fVars t' t) $ mkBVar 0) $
+              motive l fVars b (mkApp (liftBVarsTwo ref) (mkBVar 1))
   | none   => mkForall n e.binderInfo t $
-              motive l fVars b (mkApp (liftBVarsOne ref) (mkBVar 0)) (bindingBody! em)
-| sort l' d       => mkForall "x" BinderInfo.default ref (mkSort l) --TODO name
+              motive l fVars b (mkApp (liftBVarsOne ref) (mkBVar 0))
+| sort l' d       => mkForall "x" BinderInfo.default ref (mkSort l)
 | _ => e
 
 section
@@ -66,18 +62,23 @@ match e with
   | some (i, j) => methods[i][j]
   | none        => em
 
-def methodTmS (e : Expr) (em : Expr) : Expr :=
+def methodTmS (e : Expr) (em : Expr) : TermElabM Expr := do
 match e with
-| app f e d => let fm := appFn! em
-               let em := appArg! em
-               mkApp (mkApp (methodTmS f fm) e) (methodTmP its methods e em)
+| app f e d =>
+  let fm := appFn! em
+  let em := appArg! em            
+  let f_type := bindingDomain! $ ← inferType f
+  match headerAppIdx? its f_type with --TODO is this too shaky?
+  | some _ => let methodFn ← methodTmS f fm
+              mkApp (mkApp methodFn e) (methodTmP its methods e em)
+  | none   => mkApp (← methodTmS f fm) e
 | const n l d =>
   match headerAppIdx? its e with
   | some j => motives[j]
   | none   => e
 | _ => e
 
-partial def method (name : Name) (e : Expr) (em : Expr := e) (ref := mkConst name) : Expr :=
+partial def method (name : Name) (e : Expr) (em : Expr := e) (ref := mkConst name) : TermElabM Expr := do
 match e with
 | forallE n t b d =>
   match headerAppIdx? its t with
@@ -86,12 +87,12 @@ match e with
               let b' := liftBVarsOne b
               mkForall n BinderInfo.implicit t $
               mkForall (n ++ "m") e.binderInfo 
-                (mkApp (methodTmS its methods motives t' t) $ mkBVar 0) $
-              method name b' b ref
+                (mkApp (← methodTmS its methods motives t' t) $ mkBVar 0) $
+                (← method name b' b ref)
   | none   => let ref := mkApp (liftBVarsOne ref) $ mkBVar 0
               mkForall n e.binderInfo t $
-              method name b b ref
-| _ => mkApp (methodTmS its methods motives e em) ref
+              ← method name b (bindingBody! em) ref
+| _ => mkApp (← methodTmS its methods motives e em) ref
 
 end
 
@@ -107,9 +108,9 @@ withLocalDeclD name type fun fVar => do
 partial def withMethodsAux {α} (motives : Array Expr) 
   (methods : Array (Array Expr)) (i : Nat) (x : Array Expr → TermElabM α)
   (j : Nat := 0) (fVars : Array Expr := #[]) : TermElabM α :=
-if j >= (its.get! i).ctors.length then x fVars else
+if j >= (its.get! i).ctors.length then x fVars else do
 let ctor := (its.get! i).ctors.get! j
-let type := method its methods motives ctor.name ctor.type
+let type ← method its methods motives ctor.name ctor.type
 let name := ctor.name ++ methodSuffix
 withLocalDeclD name type fun fVar => do
   withMethodsAux motives methods i x (j + 1) (fVars.push fVar)
@@ -142,8 +143,7 @@ match e with
   | none   => e
 | _ => e
 
-partial def elimRelationHeader (i : Nat) (e : Expr := (its.get! i).type) (em : Expr := e)
-  (sref : Expr := mkConst (its.get! i).name) (dref : Expr := motives[i]) : Expr :=
+partial def elimRelationHeader (e sref dref : Expr) : Expr :=
 match e with
 | sort _ _ => let dref := mkApp (liftBVarsOne dref) (mkBVar 0)
               mkForall "s" BinderInfo.default sref $ 
@@ -151,26 +151,26 @@ match e with
               mkSort levelZero
 | forallE n t b _ =>
   match headerAppIdx? its t with
-  | some j => let b    := liftBVarsOne b
-              let bm   := liftBVarsOne $ bindingBody! em
-              let td   := elimRelationHeaderTmS its motives (liftBVarsOne t) (bindingDomain! em)
+  | some j => let b'    := liftBVarsOne b
+              let td   := elimRelationHeaderTmS its motives (liftBVarsOne t) t
               let td   := mkApp td (mkBVar 0)
               let sref := mkApp (liftBVarsTwo sref) (mkBVar 1)
               let dref := mkApp (mkApp (liftBVarsTwo dref) (mkBVar 1)) (mkBVar 0)
               mkForall n BinderInfo.implicit t $
               mkForall (n ++ motiveSuffix) e.binderInfo td $
-              elimRelationHeader i b bm sref dref
+              elimRelationHeader b' sref dref
   | none   => let sref := mkApp (liftBVarsOne sref) (mkBVar 0)
               let dref := mkApp (liftBVarsOne dref) (mkBVar 0)
               mkForall n e.binderInfo t $
-              elimRelationHeader i b (bindingBody! em) sref dref
+              elimRelationHeader b sref dref
 | _ => e
 
 partial def elimRelation (its : List InductiveType) (i : Nat := 0) (rits := []) : MetaM $ List InductiveType :=
 if i >= its.length then rits else do
 let it := its.get! i
-let type := elimRelationHeader its motives i
-let type ← mkForallFVars motives type
+let type := elimRelationHeader its motives (its.get! i).type (mkConst (its.get! i).name) motives[i]
+let motivesAndMethods := motives ++ methods.concat
+let type ← mkForallFVars motivesAndMethods type
 let ctors := []
 let rit := { name  := it.name ++ relationSuffix,
              type  := type,
