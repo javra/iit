@@ -36,12 +36,10 @@ open List
 open Meta
 
 def declareInductiveTypes (views : Array InductiveView) (pr : PreElabResult) : TermElabM Unit := do
-  let view0 := views[0]
-  let decl := Declaration.inductDecl pr.levelParams pr.numParams pr.its pr.isUnsafe
+  let decl := mkInductiveDeclEs pr.levelParams pr.numParams pr.its pr.isUnsafe
   Term.ensureNoUnassignedMVars decl
   addDecl decl
   mkAuxConstructions (pr.its.map InductiveType.name)
-  --throwErrorAt view0.ref $ "Created types ".append (pr.its.map (λ it => it.name)).toString
   for view in views do
         Term.applyAttributesAt view.declName view.modifiers.attrs AttributeApplicationTime.afterTypeChecking
   return
@@ -68,7 +66,7 @@ def elabIIT (elems : Array Syntax) : CommandElabM Unit := do
         let rits ← elimRelation motives pr.its
         --throwError $ (rits.get! 0).type
         --throwError $ ← methods[1].mapM (fun fv => inferType fv)
-        let rpr := { pr with its := rits }
+        let rpr := { pr with its := rits, numParams := pr.numParams + motives.size }
         declareInductiveTypes views rpr
         --throwError $ rits.map (fun it => it.type)
 

@@ -23,12 +23,16 @@ def methodSuffix : Name := "m"
 private def liftBVarsOne (e : Expr) : Expr := liftLooseBVars e 0 1
 private def liftBVarsTwo (e : Expr) : Expr := liftLooseBVars e 0 2
 
-def motiveAux (t tm terminal : Expr) :=
+def motiveAux (fVars : Array Expr) (t tm : Expr) :=
 match t with
-| app f e d => let fm := appFn! tm
-               let em := appArg! tm
-               mkApp (mkApp (motiveAux f fm terminal) e) em
-| _         => terminal
+| app f e d   => let fm := appFn! tm
+                 let em := appArg! tm
+                 mkApp (mkApp (motiveAux fVars f fm) e) em
+| const n l _ =>
+  match headerAppIdx? its t with
+  | some j    => fVars[j]
+  | none      => t
+| _           => t
 
 partial def motive (l : Level) (fVars : Array Expr) (e : Expr) (ref : Expr) (em : Expr := e) : Expr :=
 match e with
@@ -36,10 +40,10 @@ match e with
    match headerAppIdx? its t with
   | some j => let b  := liftBVarsOne b
               let t' := liftBVarsOne t
-              let tm := liftBVarsOne $ bindingDomain! em
-              let bm := bindingBody! em
+              let tm := bindingDomain! em
+              let bm := liftBVarsOne $ bindingBody! em
               mkForall n BinderInfo.implicit t $
-              mkForall (n ++ "m") e.binderInfo (mkApp (motiveAux t' tm fVars[j]) $ mkBVar 0) $
+              mkForall (n ++ "m") e.binderInfo (mkApp (motiveAux its fVars t' tm) $ mkBVar 0) $
               motive l fVars b (mkApp (liftBVarsTwo ref) (mkBVar 1)) bm
   | none   => mkForall n e.binderInfo t $
               motive l fVars b (mkApp (liftBVarsOne ref) (mkBVar 0)) (bindingBody! em)
@@ -147,13 +151,12 @@ match e with
               mkSort levelZero
 | forallE n t b _ =>
   match headerAppIdx? its t with
-  | some j => let tm   := bindingDomain! em
-              let b    := liftBVarsOne b
-              let bm   := bindingBody! em
-              let td   := elimRelationHeaderTmS its motives (liftBVarsOne t) (liftBVarsOne tm)
+  | some j => let b    := liftBVarsOne b
+              let bm   := liftBVarsOne $ bindingBody! em
+              let td   := elimRelationHeaderTmS its motives (liftBVarsOne t) (bindingDomain! em)
               let td   := mkApp td (mkBVar 0)
               let sref := mkApp (liftBVarsTwo sref) (mkBVar 1)
-              let dref := mkApp (mkApp (liftBVarsTwo dref) (mkBVar 1)) (mkBVar 0) --TODO lift second dref?
+              let dref := mkApp (mkApp (liftBVarsTwo dref) (mkBVar 1)) (mkBVar 0)
               mkForall n BinderInfo.implicit t $
               mkForall (n ++ motiveSuffix) e.binderInfo td $
               elimRelationHeader i b bm sref dref
