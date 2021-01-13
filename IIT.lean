@@ -7,6 +7,7 @@ import IIT.Erasure
 import IIT.Wellformedness
 import IIT.Sigma
 import IIT.Relation
+import IIT.Totality
 
 namespace IIT
 
@@ -62,11 +63,14 @@ def elabIIT (elems : Array Syntax) : CommandElabM Unit := do
       -- Calculate sigma construction and declare it
       let sigmaDecls ← sigmaDecls pr.its eits wits
       sigmaDecls.toArray.forM addDecl
-      withRecArgs pr.its (pr.its.map fun _ => levelZero) fun motives methods => do
+      let ls := pr.its.map fun _ => levelOne --TODO make universe polymorphic
+      withRecArgs pr.its ls fun motives methods => do
         let rits ← elimRelation motives methods pr.its
-        let rpr := { pr with its := rits, numParams := pr.numParams + motives.size + methods.concat.size }
+        let rpr := { pr with its := rits, 
+                             numParams := pr.numParams + motives.size + methods.concat.size }
         declareInductiveTypes views rpr
-        --throwError $ rits.map (fun it => it.type)
+        let totDecls ← totalityTypes pr.its ls motives methods
+        totDecls.toArray.forM addDecl
 
 end IITElab
 
