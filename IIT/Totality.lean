@@ -19,8 +19,8 @@ match e with
 | forallE n t b _ => 
   match headerAppIdx? its t with
   | some _ => let t' := liftBVarsOne t
-              let tm := mkApp (motiveAux its motives t' t) $ mkBVar 0 --motive ref
-              let tr ← elimRelationCtorTmS its motives methods t' t --relation ref
+              let tm := mkApp (motiveAux its motives t' t) $ mkBVar 0
+              let tr ← elimRelationCtorTmS its motives methods (liftBVarsTwo t) t'
               let tr := mkApp (mkApp tr $ mkBVar 1) $ mkBVar 0
               let sref := mkApp (liftBVarsThree sref) $ mkBVar 2
               let dref := mkApp (mkApp (liftBVarsThree dref) $ mkBVar 2) $ mkBVar 1
@@ -34,10 +34,10 @@ match e with
               let rref := mkApp (liftBVarsOne rref) $ mkBVar 0
               mkForall n e.binderInfo t $
               ← totalityType l b sref dref rref
-| sort l _        => let dref := liftBVarsOne dref
-                     let rref := liftBVarsOne rref
-                     mkForall "s" BinderInfo.default sref $
-                     mkSigma l (mkApp dref $ mkBVar 0) (mkApp rref $ mkBVar 0)
+| sort l _  => let dref := liftBVarsOne dref
+               let rref := liftBVarsOne rref
+               mkForall "s" BinderInfo.default sref $
+               mkSigma l (mkApp dref $ mkBVar 0) (mkApp rref $ mkBVar 0)
 | _ => e
 
 partial def totalityTypes (i : Nat := 0) (decls : List Declaration := []) : MetaM $ List Declaration :=
