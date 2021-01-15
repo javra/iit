@@ -85,7 +85,7 @@ match e with
 
 end
 
-partial def wellf (its eits : List InductiveType) (i : Nat := 0) (wits := []) : List InductiveType :=
+partial def wellf (its eits : List InductiveType) (i : Nat := 0) (wits : List InductiveType := []) : List InductiveType :=
 if i >= its.length then wits else
 let it  := its.get! i
 let ctors := it.ctors.map fun ctor =>

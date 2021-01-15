@@ -53,7 +53,7 @@ let decl := Declaration.defnDecl { name     := name ++ "tot",
                                    value    := tot,
                                    type     := type,
                                    hints    := arbitrary -- TODO
-                                   isUnsafe := false }
+                                   safety   := DefinitionSafety.safe }
 totalityTypes (i + 1) (decls.append [decl])
 
 end IIT

@@ -62,14 +62,14 @@ do let hr ← sigmaHeader its eits wits i
                                    lparams := [], --TODO
                                    value := sctor,
                                    type := ctor.type,
-                                   hints := ReducibilityHints.regular 0, --TODO set reasonably
-                                   isUnsafe := false }
+                                   hints := ReducibilityHints.regular 0,
+                                   safety := DefinitionSafety.safe }
    let decl := Declaration.defnDecl { name     := (its.get! i).name, 
                                       lparams  := [], --TODO
                                       value    := hr
                                       type     := type,
                                       hints    := arbitrary,
-                                      isUnsafe := false };
+                                      safety   := DefinitionSafety.safe };
     sigmaDecls (i + 1) (hDecls ++ [decl]) (ctorDecls ++ ctors)
 
 end IIT

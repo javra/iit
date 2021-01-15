@@ -205,7 +205,7 @@ match e with
 | _ => let e ← elimRelationCtorTmS its motives methods e em
        mkApp (mkApp e sref) dref
 
-private partial def elimRelationAux (i : Nat) (j : Nat := 0) (rctors := []) : MetaM $ List Constructor :=
+private partial def elimRelationAux (i : Nat) (j : Nat := 0) (rctors : List Constructor := []) : MetaM $ List Constructor :=
 if j >= (its.get! i).ctors.length then rctors else do
 let ctor := (its.get! i).ctors.get! j
 let type ← elimRelationCtor its motives methods ctor.type (mkConst ctor.name) methods[i][j]
@@ -213,7 +213,7 @@ let type ← mkForallFVars (motives ++ methods.concat) type
 elimRelationAux i (j + 1) $ rctors.append [{ name := ctor.name ++ relationSuffix,
                                              type := type : Constructor }]
 
-partial def elimRelation (its : List InductiveType) (i : Nat := 0) (rits := []) : MetaM $ List InductiveType :=
+partial def elimRelation (its : List InductiveType) (i : Nat := 0) (rits : List InductiveType := []) : MetaM $ List InductiveType :=
 if i >= its.length then rits else do
 let it := its.get! i
 let type := elimRelationHeader its motives (its.get! i).type (mkConst (its.get! i).name) motives[i]
