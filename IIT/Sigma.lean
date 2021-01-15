@@ -62,7 +62,7 @@ do let hr ← sigmaHeader its eits wits i
                                    lparams := [], --TODO
                                    value := sctor,
                                    type := ctor.type,
-                                   hints := arbitrary, --TODO set to opaque
+                                   hints := ReducibilityHints.regular 0, --TODO set reasonably
                                    isUnsafe := false }
    let decl := Declaration.defnDecl { name     := (its.get! i).name, 
                                       lparams  := [], --TODO

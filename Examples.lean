@@ -31,67 +31,35 @@ iit Tm : (Γ : Con) → (A : Ty Γ) → Type where
 
 end
 
-#check @Con.E.rec
+#check @Con.E.recOn
+#check CoeT.mk
 
-mutual
-
-/-variables
-  (Con.m : Con → Type)
-  (Ty.m : {Γ : Con} → Con.m Γ → Ty Γ → Type)
-  (Tm.m : {Γ : Con} → (Γ.m : Con.m Γ) → {A : Ty Γ} → @Ty.m Γ Γ.m A → Tm Γ A → Type)
-  (Con.nil.m : Con.m Con.nil)
-  (Con.ext.m : {Γ : Con} → (Γ.m : Con.m Γ) → {A : Ty Γ} → @Ty.m Γ Γ.m A → Con.m (Con.ext Γ A))
-  (Ty.U.m : {Δ : Con} → (Δ.m : Con.m Δ) → @Ty.m Δ Δ.m (Ty.U Δ))
-  (Ty.pi.m :
-                {Γ : Con} →
-                  (Γ.m : Con.m Γ) →
-                    {A : Ty Γ} →
-                      (A.m : @Ty.m Γ Γ.m A) →
-                        {B : Ty (Con.ext Γ A)} →
-                          @Ty.m (Con.ext Γ A) (@Con.ext.m Γ Γ.m A A.m) B → @Ty.m Γ Γ.m (Ty.pi Γ A B))
-  (Tm.El.m : {Γ : Con} → (Γ.m : Con.m Γ) → @Tm.m Γ Γ.m (Ty.U Γ) (@Ty.U.m Γ Γ.m) (Tm.El Γ))
--/
+set_option pp.all true
+set_option trace.Meta.isDefEq true
 
 def Con_total : Con.tot := by
   intros Con.m Ty.m Tm.m Con.nil.m Con.ext.m Ty.U.m Ty.pi.m Tm.El.m Γ
   cases Γ with
   | PSigma.mk Γ.e Γ.w =>
-    induction Γ.e with
-    | _ => skip
+    skip
+    apply @Con.E.rec
+            (fun Γ.e => ∀ Γ.w, PSigma (Con.r Con.m Ty.m Tm.m Con.nil.m Con.ext.m Ty.U.m Ty.pi.m Tm.El.m { fst := Γ.e, snd := Γ.w }))
+            (fun A.e => ∀ Γ Γ.m A.w, PSigma (@Ty.r Con.m Ty.m Tm.m Con.nil.m Con.ext.m Ty.U.m Ty.pi.m Tm.El.m Γ Γ.m { fst := A.e, snd := A.w }))
+            (fun t.e => PUnit)
+    focus
+      intro Γ.w'
+      apply PSigma.mk
+      apply Con.nil.r
+    focus
+      intros Γ.e A.e ih1 ih2 Γ.w'
+      apply PSigma.mk
+      cases Γ.w' with
+      | Con.ext.w _ Γ.w'' _ A.w'' =>
+        --have r' := Con.ext.r Con.m Ty.m Tm.m Con.nil.m Con.ext.m Ty.U.m Ty.pi.m Tm.El.m 
+        --            { fst := Γ.e, snd := Γ.w'' } (ih1 Γ.w'').snd
+        --            { fst := A.e, snd := A.w'' } (ih2 {fst := Γ.e , snd := Γ.w''} (ih1 Γ.w'').fst A.w'').snd
+        --simp
+        apply Con.ext.r Con.m Ty.m Tm.m Con.nil.m Con.ext.m Ty.U.m Ty.pi.m Tm.El.m 
+                { fst := Γ.e, snd := Γ.w'' } (ih1 Γ.w'').snd 
+                { fst := A.e, snd := A.w'' } (ih2 {fst := Γ.e , snd := Γ.w''} (ih1 Γ.w'').fst A.w'').snd
 
-def Tm_total : Tm.tot := by
-  intros Con.m Ty.m Tm.m Con.nil.m Con.ext.m Ty.U.m Ty.pi.m Tm.El.m Γ Γ.m Γ.r A A.m A.r t
-  induction t with 
-  | PSigma.mk t.e t.w =>
-    cases t.e with
-    | El.E Γ' => _
-
-end
-
-#exit
-
-mutual
-
-inductive ConE : Type where
-| nilE : ConE
-| extE : ConE → TyE → ConE
-
-inductive TyE : Type where
-| UE : ConE → TyE
-
-end
-
-#check @ConE.recOn
-
-noncomputable def length (ΓE : ConE) : Nat := by
-  apply @ConE.recOn (fun _ => Nat) (fun _ => Unit) ΓE
-  case nilE =>
-    exact 0
-  case extE => 
-    intros ΓE AE ih1 ih2
-    exact ih1 + 1
-  case UE =>
-    intros ΓE ih1
-    exact ()
-
-#reduce length (ConE.extE ConE.nilE _)
