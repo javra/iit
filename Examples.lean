@@ -31,35 +31,93 @@ iit Tm : (Γ : Con) → (A : Ty Γ) → Type where
 
 end
 
-#check @Con.E.recOn
-#check CoeT.mk
-
-set_option pp.all true
-set_option trace.Meta.isDefEq true
-
-def Con_total : Con.tot := by
+noncomputable def Con_total : Con.tot := by
   intros Con.m Ty.m Tm.m Con.nil.m Con.ext.m Ty.U.m Ty.pi.m Tm.El.m Γ
   cases Γ with
   | PSigma.mk Γ.e Γ.w =>
-    skip
     apply @Con.E.rec
             (fun Γ.e => ∀ Γ.w, PSigma (Con.r Con.m Ty.m Tm.m Con.nil.m Con.ext.m Ty.U.m Ty.pi.m Tm.El.m { fst := Γ.e, snd := Γ.w }))
-            (fun A.e => ∀ Γ Γ.m A.w, PSigma (@Ty.r Con.m Ty.m Tm.m Con.nil.m Con.ext.m Ty.U.m Ty.pi.m Tm.El.m Γ Γ.m { fst := A.e, snd := A.w }))
+            (fun A.e => ∀ Γ Γ.m (Γ.r : Con.r Con.m Ty.m Tm.m Con.nil.m Con.ext.m Ty.U.m Ty.pi.m Tm.El.m Γ Γ.m) A.w, 
+              PSigma (@Ty.r Con.m Ty.m Tm.m Con.nil.m Con.ext.m Ty.U.m Ty.pi.m Tm.El.m Γ Γ.m { fst := A.e, snd := A.w }))
             (fun t.e => PUnit)
     focus
       intro Γ.w'
       apply PSigma.mk
       apply Con.nil.r
     focus
-      intros Γ.e A.e ih1 ih2 Γ.w'
+      intros _ _ ih1 ih2 Γ.w'
       apply PSigma.mk
-      cases Γ.w' with
-      | Con.ext.w _ Γ.w'' _ A.w'' =>
-        --have r' := Con.ext.r Con.m Ty.m Tm.m Con.nil.m Con.ext.m Ty.U.m Ty.pi.m Tm.El.m 
-        --            { fst := Γ.e, snd := Γ.w'' } (ih1 Γ.w'').snd
-        --            { fst := A.e, snd := A.w'' } (ih2 {fst := Γ.e , snd := Γ.w''} (ih1 Γ.w'').fst A.w'').snd
-        --simp
-        apply Con.ext.r Con.m Ty.m Tm.m Con.nil.m Con.ext.m Ty.U.m Ty.pi.m Tm.El.m 
-                { fst := Γ.e, snd := Γ.w'' } (ih1 Γ.w'').snd 
-                { fst := A.e, snd := A.w'' } (ih2 {fst := Γ.e , snd := Γ.w''} (ih1 Γ.w'').fst A.w'').snd
+      apply Con.ext.r (Γ.r := (ih1 _).snd) (A.r := (ih2 _ _ _ _).snd)
+      repeat { cases Γ.w'; assumption }
+      apply (ih1 _).snd
+    focus
+      intros Δ _ Γ' _ _ U.w
+      have e : Γ'.1 = Δ := by { cases U.w; rfl }
+      induction e
+      apply PSigma.mk
+      apply Ty.U.r
+      assumption
+    focus
+      intros Γ A B Γ.r A.r B.r Γ' Γ'.m Γ'.r π.w
+      have e : Γ'.1 = Γ := by { cases π.w; rfl }
+      induction e
+      apply PSigma.mk
+      apply Ty.pi.r (Γ.r := Γ'.r) (A.r := (A.r _ _ _ _).snd) (B.r := (B.r _ _ _ _).snd)
+      cases π.w
+      assumption
+      assumption
+      cases π.w
+      assumption
+      apply Con.ext.r
+      assumption
+      cases π.w
+      apply (A.r _ _ _ _).snd
+    focus
+      intros
+      exact ()
 
+noncomputable def Ty_total : Ty.tot := by
+  intros Con.m Ty.m Tm.m Con.nil.m Con.ext.m Ty.U.m Ty.pi.m Tm.El.m Γ Γ.m Γ.r A
+  cases A with
+  | PSigma.mk A.e A.w =>
+    apply @Ty.E.rec
+            (fun Γ.e => ∀ Γ.w, PSigma (Con.r Con.m Ty.m Tm.m Con.nil.m Con.ext.m Ty.U.m Ty.pi.m Tm.El.m { fst := Γ.e, snd := Γ.w }))
+            (fun A.e => ∀ Γ Γ.m (Γ.r : Con.r Con.m Ty.m Tm.m Con.nil.m Con.ext.m Ty.U.m Ty.pi.m Tm.El.m Γ Γ.m) A.w, 
+              PSigma (@Ty.r Con.m Ty.m Tm.m Con.nil.m Con.ext.m Ty.U.m Ty.pi.m Tm.El.m Γ Γ.m { fst := A.e, snd := A.w }))
+            (fun t.e => PUnit)
+    focus
+      intro Γ.w'
+      apply PSigma.mk
+      apply Con.nil.r
+    focus
+      intros _ _ ih1 ih2 Γ.w'
+      apply PSigma.mk
+      apply Con.ext.r (Γ.r := (ih1 _).snd) (A.r := (ih2 _ _ _ _).snd)
+      repeat { cases Γ.w'; assumption }
+      apply (ih1 _).snd
+    focus
+      intros Δ _ Γ' _ _ U.w
+      have e : Γ'.1 = Δ := by { cases U.w; rfl }
+      induction e
+      apply PSigma.mk
+      apply Ty.U.r
+      assumption
+    focus
+      intros Γ A B Γ.r A.r B.r Γ' Γ'.m Γ'.r π.w
+      have e : Γ'.1 = Γ := by { cases π.w; rfl }
+      induction e
+      apply PSigma.mk
+      apply Ty.pi.r (Γ.r := Γ'.r) (A.r := (A.r _ _ _ _).snd) (B.r := (B.r _ _ _ _).snd)
+      cases π.w
+      assumption
+      assumption
+      cases π.w
+      assumption
+      apply Con.ext.r
+      assumption
+      cases π.w
+      apply (A.r _ _ _ _).snd
+    focus
+      intros
+      exact ()
+    assumption
