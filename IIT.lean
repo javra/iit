@@ -69,7 +69,7 @@ def elabIIT (elems : Array Syntax) : CommandElabM Unit := do
         let rpr := { pr with its := rits, 
                              numParams := pr.numParams + motives.size + methods.concat.size }
         declareInductiveTypes views rpr
-        let totDecls ← totalityTypes pr.its ls motives methods
+        let totDecls ← totalityTypes pr.its ls motives methods    
         totDecls.toArray.forM addDecl
 
 end IITElab

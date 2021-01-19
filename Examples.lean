@@ -1,9 +1,5 @@
 import IIT
 
---set_option trace.Elab true
---set_option syntaxMaxDepth 10
---set_option pp.all true
-
 mutual
 
 iit Con : Type where
@@ -31,9 +27,11 @@ iit Tm : (Γ : Con) → (A : Ty Γ) → Type where
 
 end
 
-noncomputable def Con_total : Con.tot := by
-  intros Con.m Ty.m Tm.m Con.nil.m Con.ext.m Ty.U.m Ty.pi.m Tm.El.m Γ
-  cases Γ with
+open IIT
+
+noncomputable def Cont_total : Con.tot := by
+  totalityOuter 0 [Con, Ty, Tm] [Con.nil, Con.ext] [Ty.U, Ty.pi] [Tm.El]
+  cases sMain with
   | PSigma.mk Γ.e Γ.w =>
     apply @Con.E.rec
             (fun Γ.e => ∀ Γ.w, PSigma (Con.r Con.m Ty.m Tm.m Con.nil.m Con.ext.m Ty.U.m Ty.pi.m Tm.El.m { fst := Γ.e, snd := Γ.w }))
@@ -77,8 +75,8 @@ noncomputable def Con_total : Con.tot := by
       exact ()
 
 noncomputable def Ty_total : Ty.tot := by
-  intros Con.m Ty.m Tm.m Con.nil.m Con.ext.m Ty.U.m Ty.pi.m Tm.El.m Γ Γ.m Γ.r A
-  cases A with
+  totalityOuter 1 [Con, Ty, Tm] [Con.nil, Con.ext] [Ty.U, Ty.pi] [Tm.El]
+  cases sMain with
   | PSigma.mk A.e A.w =>
     apply @Ty.E.rec
             (fun Γ.e => ∀ Γ.w, PSigma (Con.r Con.m Ty.m Tm.m Con.nil.m Con.ext.m Ty.U.m Ty.pi.m Tm.El.m { fst := Γ.e, snd := Γ.w }))
