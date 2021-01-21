@@ -22,14 +22,24 @@ match e with
 | sort l d        => l
 | _ => levelZero
 
+def mkForallM (n : Name) (bi : BinderInfo) (t : Expr) (b : Expr → MetaM Expr) : MetaM Expr := do
+withLocalDecl n bi t $ fun fVar => do
+  mkForallFVars #[fVar] $ instantiate1 (← b fVar) fVar
+
+def mkLambdaM (n : Name) (bi : BinderInfo) (t : Expr) (b : Expr → MetaM Expr) : MetaM Expr := do
+withLocalDecl n bi t $ fun fVar => do
+  mkLambdaFVars #[fVar] $ instantiate1 (← b fVar) fVar
+
 def mkSigma (l : Level) (α β : Expr) : Expr :=
 mkApp (mkApp (mkConst `PSigma [l, levelZero]) α) β
+
+def mkSigmaM (β : Expr) : MetaM Expr := mkAppM `PSigma #[β]
 
 def mkFst (x : Expr) : Expr := mkProj `PSigma 0 x
 
 def mkSnd (x : Expr) : Expr := mkProj `PSigma 1 x
 
-def mkPair (p q : Expr) : TermElabM Expr := mkAppM `PSigma.mk #[p, q]
+def mkPair (p q : Expr) : MetaM Expr := mkAppM `PSigma.mk #[p, q]
 
 end Expr
 

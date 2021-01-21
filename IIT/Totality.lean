@@ -62,13 +62,13 @@ open Lean.Parser
 open Lean.Elab.Command
 open Lean.Elab.Term
 
-partial def introMethods (mVar : MVarId) (ctorIdss : List (List Name)) (i : Nat := 0) (fVarss : Array (Array FVarId) := #[]) :
+private partial def introMethods (mVar : MVarId) (ctorIdss : List (List Name)) (i : Nat := 0) (fVarss : Array (Array FVarId) := #[]) :
   MetaM (Array (Array FVarId) × MVarId) :=
 if i >= ctorIdss.length then return (fVarss, mVar) else do
 let (fVars, mVar) ← introN mVar (ctorIdss.get! i).length ((ctorIdss.get! i).map fun n => n ++ "m")
 introMethods mVar ctorIdss (i + 1) (fVarss.push fVars)
 
-partial def introHdArgs (mVar : MVarId) (hdType : Expr) (fVars : Array FVarId := #[]) :
+private partial def introHdArgs (mVar : MVarId) (hdType : Expr) (fVars : Array FVarId := #[]) :
   MetaM (Array FVarId × MVarId) := do --TODO swap FVarId for annotated child type
 match hdType with
 | forallE n t b _ =>
@@ -79,14 +79,41 @@ match hdType with
               introHdArgs mVar b (fVars.push fVar)
 | _ => return (fVars, mVar)
 
-def totalityOuterTac (hIdx : Nat) (its : List InductiveType) : TacticM Unit :=
-liftMetaTactic fun mainMVar => do
+private partial def totalityRecMotiveAux (e : Expr) 
+  (wref rref : Expr) (mainE : Expr) : MetaM Expr := do
+match e with
+| forallE n t b _ => e --mkForallM _ _ _ _
+| sort l _ => let w := mkApp wref mainE
+              mkForallM "mainw" BinderInfo.default w fun mainw => do
+                mkSigmaM $ mkApp rref $ ← mkPair mainE mainw
+| _ => e
+
+private def totalityRecMotive (hIdx : Nat) (its : List InductiveType) : MetaM Expr :=
+let name := (its.get! hIdx).name
+let type := (its.get! hIdx).type
+let rref := mkAppN (mkConst (name ++ relationSuffix)) (motives ++ methods.concat)
+mkLambdaM "mainE" BinderInfo.default (mkConst $ name ++ erasureSuffix) fun EFVar =>
+  totalityRecMotiveAux (its.get! hIdx).type (mkConst $ name ++ wellfSuffix) rref EFVar
+
+def sMainName : Name := "S"
+
+instance : Inhabited CasesSubgoal := Inhabited.mk $ CasesSubgoal.mk arbitrary ""
+
+def totalityOuterTac (hIdx : Nat) (its : List InductiveType) : TacticM Unit := do
+  let (mVar, _) ← getMainGoal
   let hType ← inferType $ mkConst (its.get! hIdx).name --TODO levels?
-  let (motives, mainMVar) ← introN mainMVar its.length (its.map fun it => it.name ++ "m")
-  let (methods, mainMVar) ← introMethods mainMVar (its.map fun it => it.ctors.map fun ctor => ctor.name)
-  let (hArgs,   mainMVar) ← introHdArgs its mainMVar hType -- TODO intro hd args
-  let (sMain, mainMVar) ← intro mainMVar "sMain"
-  return [mainMVar]
+  let (motives, mVar) ← introN mVar its.length (its.map fun it => it.name ++ "m")
+  let (methods, mVar) ← introMethods mVar (its.map fun it => it.ctors.map fun ctor => ctor.name)
+  let (hArgs,   mVar) ← introHdArgs its mVar hType
+  let (sMain,   mVar) ← intro mVar sMainName
+  let (sCasesSubgoals) ← cases mVar sMain #[[sMainName ++ erasureSuffix, sMainName ++ wellfSuffix]]
+  let mVar := sCasesSubgoals[0].mvarId
+  let motives := motives.map mkFVar
+  let methods := methods.map fun ms => ms.map mkFVar
+  withMVarContext mVar do
+    let foo ← totalityRecMotive motives methods 0 its
+    --throwTacticEx `totalityOuter mVar foo
+    setGoals $ sCasesSubgoals.toList.map fun sg => sg.mvarId
 
 instance : Inhabited (Syntax.SepArray ",") := Inhabited.mk $ Syntax.SepArray.ofElems #[]
 
