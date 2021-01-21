@@ -73,7 +73,7 @@ private partial def introHdArgs (mVar : MVarId) (hdType : Expr) (fVars : Array F
 match hdType with
 | forallE n t b _ =>
   match headerAppIdx? its t with
-  | some j => let (fVars', mVar) ← introN mVar 3 [n, n ++ motiveSuffix, n ++ relationSuffix]
+  | some _ => let (fVars', mVar) ← introN mVar 3 [n, n ++ motiveSuffix, n ++ relationSuffix]
               introHdArgs mVar b (fVars.append fVars')
   | none   => let (fVar, mVar) ← intro mVar n
               introHdArgs mVar b (fVars.push fVar)
@@ -82,18 +82,34 @@ match hdType with
 private partial def totalityRecMotiveAux (e : Expr) 
   (wref rref : Expr) (mainE : Expr) : MetaM Expr := do
 match e with
-| forallE n t b _ => e --mkForallM _ _ _ _
-| sort l _ => let w := mkApp wref mainE
-              mkForallM "mainw" BinderInfo.default w fun mainw => do
-                mkSigmaM $ mkApp rref $ ← mkPair mainE mainw
+| forallE n t b _ => 
+  match headerAppIdx? its t with
+  | some j => mkForallM (n ++ erasureSuffix) BinderInfo.default (mkConst $ (its.get! j).name ++ erasureSuffix) fun eFVar => do
+                let w := mkApp (wellfCtorTmS its t) eFVar
+                mkForallM (n ++ wellfSuffix) BinderInfo.default w fun wFVar => do
+                  let m := mkApp motives[j] $ ← mkPair eFVar wFVar
+                  mkForallM (n ++ motiveSuffix) BinderInfo.default m fun mFVar => do
+                    let r := mkApp (mkApp (← elimRelationCtorTmS its motives methods t t) eFVar) wFVar
+                    mkForallM (n ++ relationSuffix) BinderInfo.default r fun rFVar => do
+                      let wref := mkApp wref eFVar
+                      let rref := mkApp rref $ ← mkPair eFVar wFVar
+                      let rref := mkApp rref $ mFVar
+                      --throwError $ rref
+                      totalityRecMotiveAux b wref rref mainE
+  | none   => e
+| sort l _        => let w := mkApp wref mainE
+                     mkForallM "mainw" BinderInfo.default w fun mainw => do
+                       mkSigmaM $ mkApp rref $ ← mkPair mainE mainw
 | _ => e
+
+#check mkAppM
 
 private def totalityRecMotive (hIdx : Nat) (its : List InductiveType) : MetaM Expr :=
 let name := (its.get! hIdx).name
 let type := (its.get! hIdx).type
 let rref := mkAppN (mkConst (name ++ relationSuffix)) (motives ++ methods.concat)
 mkLambdaM "mainE" BinderInfo.default (mkConst $ name ++ erasureSuffix) fun EFVar =>
-  totalityRecMotiveAux (its.get! hIdx).type (mkConst $ name ++ wellfSuffix) rref EFVar
+  totalityRecMotiveAux its motives methods (its.get! hIdx).type (mkConst $ name ++ wellfSuffix) rref EFVar
 
 def sMainName : Name := "S"
 
@@ -111,8 +127,8 @@ def totalityOuterTac (hIdx : Nat) (its : List InductiveType) : TacticM Unit := d
   let motives := motives.map mkFVar
   let methods := methods.map fun ms => ms.map mkFVar
   withMVarContext mVar do
-    let foo ← totalityRecMotive motives methods 0 its
-    --throwTacticEx `totalityOuter mVar foo
+    let foo ← totalityRecMotive motives methods 1 its
+    throwTacticEx `totalityOuter mVar foo
     setGoals $ sCasesSubgoals.toList.map fun sg => sg.mvarId
 
 instance : Inhabited (Syntax.SepArray ",") := Inhabited.mk $ Syntax.SepArray.ofElems #[]

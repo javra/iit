@@ -41,10 +41,10 @@ match e with
 
 def wellfHeader (i : Nat) (e : Expr := (its.get! i).type) : Expr :=
 match e with
-| sort _ _        => mkForall "e" BinderInfo.default (mkConst $ (eits.get! i).name) (mkSort levelZero)
+| sort _ _        => mkForall "e" BinderInfo.default (mkConst $ (its.get! i).name ++ erasureSuffix) (mkSort levelZero)
 | forallE n t b d => 
   match headerAppIdx? its t with
-  | some j => mkForall n e.binderInfo (mkConst $ (eits.get! j).name) (wellfHeader i b)
+  | some j => mkForall n e.binderInfo (mkConst $ (its.get! j).name ++ erasureSuffix) (wellfHeader i b)
   | none   => mkForall n e.binderInfo t (wellfHeader i b)
 | lam n t b d     => mkLambda n e.binderInfo (wellfHeader i t) (wellfHeader i b) --TODO not sure if unreachable
 | app f e d       => mkApp (wellfHeader i f) e
@@ -92,7 +92,7 @@ let ctors := it.ctors.map fun ctor =>
   { name := ctor.name ++ wellfSuffix,
     type := wellfCtor its eits ctor.type (mkConst (ctor.name ++ erasureSuffix)) : Constructor }
 let wit := { name  := it.name ++ wellfSuffix,
-             type  := wellfHeader its eits i,
+             type  := wellfHeader its i,
              ctors := ctors : InductiveType }
 wellf its eits (i + 1) (wits.append [wit])
 
