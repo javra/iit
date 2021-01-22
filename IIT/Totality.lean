@@ -87,22 +87,22 @@ match e with
   | some j => mkForallM (n ++ erasureSuffix) BinderInfo.default (mkConst $ (its.get! j).name ++ erasureSuffix) fun eFVar => do
                 let w := mkApp (wellfCtorTmS its t) eFVar
                 mkForallM (n ++ wellfSuffix) BinderInfo.default w fun wFVar => do
-                  let m := mkApp motives[j] $ ← mkPair eFVar wFVar
+                  let m := mkApp (← methodTmS its methods motives t t) $ ← mkPair eFVar wFVar
                   mkForallM (n ++ motiveSuffix) BinderInfo.default m fun mFVar => do
                     let r := mkApp (mkApp (← elimRelationCtorTmS its motives methods t t) eFVar) wFVar
                     mkForallM (n ++ relationSuffix) BinderInfo.default r fun rFVar => do
                       let wref := mkApp wref eFVar
                       let rref := mkApp rref $ ← mkPair eFVar wFVar
                       let rref := mkApp rref $ mFVar
-                      --throwError $ rref
                       totalityRecMotiveAux b wref rref mainE
-  | none   => e
+  | none   => mkForallM n e.binderInfo t fun extFVar => do
+                let wref := mkApp wref extFVar
+                let rref := mkApp rref extFVar
+                totalityRecMotiveAux b wref rref mainE
 | sort l _        => let w := mkApp wref mainE
                      mkForallM "mainw" BinderInfo.default w fun mainw => do
                        mkSigmaM $ mkApp rref $ ← mkPair mainE mainw
 | _ => e
-
-#check mkAppM
 
 private def totalityRecMotive (hIdx : Nat) (its : List InductiveType) : MetaM Expr :=
 let name := (its.get! hIdx).name
@@ -116,8 +116,9 @@ def sMainName : Name := "S"
 instance : Inhabited CasesSubgoal := Inhabited.mk $ CasesSubgoal.mk arbitrary ""
 
 def totalityOuterTac (hIdx : Nat) (its : List InductiveType) : TacticM Unit := do
+  let mainIT := its.get! hIdx
   let (mVar, _) ← getMainGoal
-  let hType ← inferType $ mkConst (its.get! hIdx).name --TODO levels?
+  let hType ← inferType $ mkConst mainIT.name --TODO levels?
   let (motives, mVar) ← introN mVar its.length (its.map fun it => it.name ++ "m")
   let (methods, mVar) ← introMethods mVar (its.map fun it => it.ctors.map fun ctor => ctor.name)
   let (hArgs,   mVar) ← introHdArgs its mVar hType
@@ -127,9 +128,12 @@ def totalityOuterTac (hIdx : Nat) (its : List InductiveType) : TacticM Unit := d
   let motives := motives.map mkFVar
   let methods := methods.map fun ms => ms.map mkFVar
   withMVarContext mVar do
-    let foo ← totalityRecMotive motives methods 1 its
-    throwTacticEx `totalityOuter mVar foo
-    setGoals $ sCasesSubgoals.toList.map fun sg => sg.mvarId
+    let mut recMotives := #[]
+    for i in [:its.length] do
+      let mot ← totalityRecMotive motives methods i its
+      recMotives := recMotives.push mot
+    let foo := mkAppN (mkConst (mainIT.name ++ erasureSuffix ++ "rec") [levelOne]) recMotives --TODO levels
+    throwTacticEx `totalityOuter mVar (← inferType foo)
 
 instance : Inhabited (Syntax.SepArray ",") := Inhabited.mk $ Syntax.SepArray.ofElems #[]
 

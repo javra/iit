@@ -16,8 +16,8 @@ iit Ty : (Γ : Con) → Type where
 --iit Subb : (Δ Γ : Con) → Type where
 --| swap : (Δ Γ : Con) → (A : Subb Γ Δ) → Subb Δ Γ
 
---iit Foo : (m n : Nat) → Type where
---| bar : Foo 5 3
+iit Foo : (m n : Nat) → Type where
+| bar : Foo 5 3
 --| baz : (m n : Nat) → /-(p : Foo n m) →-/ Foo m n
 
 --iit Blubb : (Γ Δ : Con) → (n : Nat) → (A : Ty Δ) → (B : Ty Γ) → Type where
@@ -31,12 +31,13 @@ open IIT
 
 --set_option pp.all true
 
+#check @Con.E.rec
 noncomputable def Con_total : Con.tot := by
-  totalityOuter 0 [Con, Ty] [Con.nil] [Ty.U]
-  refine @Con.E.rec
+  totalityOuter 0 [Con, Ty, Foo] [Con.nil] [Ty.U] [Foo.bar]
+  /-refine @Con.E.rec
           (fun Γ.e => ∀ Γ.w, PSigma (Con.r Con.m Ty.m Con.nil.m Ty.U.m { fst := Γ.e, snd := Γ.w }))
-          (fun A.e => ∀ Γ Γ.m (Γ.r : Con.r Con.m Ty.m Con.nil.m Ty.U.m Γ Γ.m) A.w, 
-            PSigma (@Ty.r Con.m Ty.m Con.nil.m Ty.U.m Γ Γ.m { fst := A.e, snd := A.w })) ?_ ?_ S.E S.w
+          (fun A.e => ∀ Γ.e Γ.w Γ.m (Γ.r : Con.r Con.m Ty.m Con.nil.m Ty.U.m { fst := Γ.e, snd := Γ.w } Γ.m) A.w, 
+            PSigma (@Ty.r Con.m Ty.m Con.nil.m Ty.U.m { fst := Γ.e, snd := Γ.w } Γ.m { fst := A.e, snd := A.w })) ?_ ?_ S.E S.w-/
   skip --TODO finde heraus, wie refine die typen der loecher inferiert
 
 #check @Con.E.rec

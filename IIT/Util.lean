@@ -1,7 +1,6 @@
 /- General purpose utility functions -/
 import Lean.Expr
 import Lean.Elab
-
 open Lean
 open Elab
 open Meta
@@ -42,6 +41,32 @@ def mkSnd (x : Expr) : Expr := mkProj `PSigma 1 x
 def mkPair (p q : Expr) : MetaM Expr := mkAppM `PSigma.mk #[p, q]
 
 end Expr
+
+namespace Meta
+
+def appExprHole (f : Expr) : MetaM (MVarId × Expr) := do
+  let t ← inferType f
+  match t with
+  | Expr.forallE _ t _ _ =>
+    let mVar ← mkFreshExprMVar t
+    return (mVar.mvarId!, mkApp f mVar)
+  | _ => throwError "can only apply 'appExprHole' on pi types"
+
+partial def appExprHoleN (n : Nat) (f : Expr) : MetaM (List MVarId × Expr) :=
+if n = 0 then return ([], f) else do
+  let (mids, f) ← appExprHoleN (n - 1) f
+  let (mid, f) ← appExprHole f
+  return (mids.append [mid], f)
+
+open Tactic
+
+def solveAndSetGoals (val : Expr) (mids : List MVarId) : TacticM Unit := do
+  let (g, gs) ← getMainGoal
+  withMVarContext g do
+    assignExprMVar g val
+    setGoals (mids ++ gs)
+
+end Meta
 
 end Lean
 
