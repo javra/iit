@@ -89,7 +89,7 @@ match hdType with
               introHdArgs mVar b (has.push $ HeaderArg.external fVar)
 | _ => return (has, mVar)
 
-private partial def totalityRecMotiveAux (e : Expr) 
+private partial def totalityRecMotiveAux_old (e : Expr) 
   (wref rref : Expr) (mainE : Expr) : MetaM Expr := do
 match e with
 | forallE n t b _ => 
@@ -103,15 +103,42 @@ match e with
                   mkForallM (n ++ relationSuffix) BinderInfo.default r fun rFVar => do
                     let wref := mkApp wref se
                     let rref := mkAppN rref #[sFVar, mFVar]
-                    totalityRecMotiveAux b wref rref mainE
+                    totalityRecMotiveAux_old b wref rref mainE
   | none   => mkForallM n e.binderInfo t fun extFVar => do
                 let wref := mkApp wref extFVar
                 let rref := mkApp rref extFVar
-                totalityRecMotiveAux b wref rref mainE
+                totalityRecMotiveAux_old b wref rref mainE
 | sort l _        => let w := mkApp wref mainE
                      mkForallM "mainw" BinderInfo.default w fun mainw => do
                        mkSigmaM $ mkApp rref $ ← mkPair mainE mainw
 | _ => e
+
+private partial def totalityRecMotiveAux (e : Expr) 
+  (wref rref : Expr) (mainE : Expr) (em er : Expr := e) : MetaM Expr := do
+match e with
+| forallE n t b _ => do
+  match headerAppIdx? its t with
+  | some j => (let m := mkApp (← methodTmS its methods motives (liftBVarsOne t) (liftBVarsOne $ bindingDomain! em)) (mkBVar 0)
+               let r := mkAppN (← elimRelationCtorTmS its motives methods (liftBVarsTwo t) (liftBVarsTwo $ bindingDomain! er))
+                          #[mkBVar 1, mkBVar 0]
+	       let wref := mkApp (liftBVarsThree wref) $ mkFst $ mkBVar 2
+	       let rref := mkAppN (liftBVarsThree rref) #[mkBVar 2, mkBVar 1]
+	       let b'   := liftBVarsTwo b
+	       let bm   := liftBVarsOne $ bindingBody! em
+	       let br   := bindingBody! er
+               return mkForall n e.binderInfo t $
+                 mkForall (n ++ motiveSuffix) BinderInfo.default m $
+	         mkForall (n ++ relationSuffix) BinderInfo.default r $
+	         ← totalityRecMotiveAux b' wref rref mainE bm br)
+  | none => let wref := mkApp (liftBVarsOne wref) (mkBVar 0)
+            let rref := mkApp (liftBVarsOne wref) (mkBVar 0)
+            let bm   := bindingBody! em
+            let br   := bindingBody! er
+            mkForall n e.binderInfo t $
+             ← totalityRecMotiveAux b wref rref mainE bm br
+| _ => let w := mkApp wref mainE
+       mkForallM "mainw" BinderInfo.default w fun mainw => do
+         mkSigmaM $ liftBVarsTwo $ mkApp rref $ ← mkPair mainE mainw --????
 
 private def totalityRecMotive (hIdx : Nat) (its : List InductiveType) : MetaM Expr :=
 let name := (its.get! hIdx).name

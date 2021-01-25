@@ -29,6 +29,8 @@ end
 
 open IIT
 
+set_option pp.all true
+
 noncomputable def Con_total' : Con.tot := by
   totalityOuter 0 [Con, Ty] [Con.nil] [Ty.U]
   intro Γ.w'
