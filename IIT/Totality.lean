@@ -68,16 +68,29 @@ if i >= ctorIdss.length then return (fVarss, mVar) else do
 let (fVars, mVar) ← introN mVar (ctorIdss.get! i).length ((ctorIdss.get! i).map fun n => n ++ "m")
 introMethods mVar ctorIdss (i + 1) (fVarss.push fVars)
 
-private partial def introHdArgs (mVar : MVarId) (hdType : Expr) (fVars : Array FVarId := #[]) :
-  MetaM (Array FVarId × MVarId) := do --TODO swap FVarId for annotated child type
+inductive HeaderArg where
+| internal : FVarId → FVarId → FVarId → HeaderArg
+| external : FVarId → HeaderArg
+
+private def HeaderArg.toExpandedExprs (ha : HeaderArg) : Array Expr :=
+match ha with
+| internal s m r => #[mkProj `PSigma 0 $ mkFVar s,
+                      mkProj `PSigma 1 $ mkFVar s,
+                      mkFVar m,
+                      mkFVar r]
+| external n     => #[mkFVar n]
+
+private partial def introHdArgs (mVar : MVarId) (hdType : Expr) (has : Array HeaderArg := #[]) :
+  MetaM (Array HeaderArg × MVarId) := do --TODO swap FVarId for annotated child type
 match hdType with
 | forallE n t b _ =>
   match headerAppIdx? its t with
   | some _ => let (fVars', mVar) ← introN mVar 3 [n, n ++ motiveSuffix, n ++ relationSuffix]
-              introHdArgs mVar b (fVars.append fVars')
+              let ha := HeaderArg.internal fVars'[0] fVars'[1] fVars'[2]
+              introHdArgs mVar b (has.push ha)
   | none   => let (fVar, mVar) ← intro mVar n
-              introHdArgs mVar b (fVars.push fVar)
-| _ => return (fVars, mVar)
+              introHdArgs mVar b (has.push $ HeaderArg.external fVar)
+| _ => return (has, mVar)
 
 private partial def totalityRecMotiveAux (e : Expr) 
   (wref rref : Expr) (mainE : Expr) : MetaM Expr := do
@@ -89,10 +102,11 @@ match e with
                 mkForallM (n ++ wellfSuffix) BinderInfo.default w fun wFVar => do
                   let m := mkApp (← methodTmS its methods motives t t) $ ← mkPair eFVar wFVar
                   mkForallM (n ++ motiveSuffix) BinderInfo.default m fun mFVar => do
-                    let r := mkApp (mkApp (← elimRelationCtorTmS its motives methods t t) eFVar) wFVar
+                    let ew ← mkPair eFVar wFVar
+                    let r := mkApp (mkApp (← elimRelationCtorTmS its motives methods t t) ew) mFVar
                     mkForallM (n ++ relationSuffix) BinderInfo.default r fun rFVar => do
                       let wref := mkApp wref eFVar
-                      let rref := mkApp rref $ ← mkPair eFVar wFVar
+                      let rref := mkApp rref $ ew
                       let rref := mkApp rref $ mFVar
                       totalityRecMotiveAux b wref rref mainE
   | none   => mkForallM n e.binderInfo t fun extFVar => do
@@ -120,21 +134,33 @@ def totalityOuterTac (hIdx : Nat) (its : List InductiveType) : TacticM Unit := d
   let (mVar, _) ← getMainGoal
   let hType ← inferType $ mkConst mainIT.name --TODO levels?
   let (motives, mVar) ← introN mVar its.length (its.map fun it => it.name ++ "m")
-  let (methods, mVar) ← introMethods mVar (its.map fun it => it.ctors.map fun ctor => ctor.name)
+  let (methodss, mVar) ← introMethods mVar (its.map fun it => it.ctors.map fun ctor => ctor.name)
+  let methods := methodss.concat
   let (hArgs,   mVar) ← introHdArgs its mVar hType
   let (sMain,   mVar) ← intro mVar sMainName
   let (sCasesSubgoals) ← cases mVar sMain #[[sMainName ++ erasureSuffix, sMainName ++ wellfSuffix]]
   let mVar := sCasesSubgoals[0].mvarId
-  let motives := motives.map mkFVar
-  let methods := methods.map fun ms => ms.map mkFVar
+  let mainE := sCasesSubgoals[0].fields[0]
+  let mainw := sCasesSubgoals[0].fields[1]
+  let motives  := motives.map mkFVar
+  let methodss := methodss.map fun ms => ms.map mkFVar
+  let methods  := methods.map mkFVar
   withMVarContext mVar do
     let mut recMotives := #[]
     for i in [:its.length] do
-      let mot ← totalityRecMotive motives methods i its
+      let mot ← totalityRecMotive motives methodss i its
       recMotives := recMotives.push mot
-    let foo := mkAppN (mkConst (mainIT.name ++ erasureSuffix ++ "rec") [levelOne]) recMotives --TODO levels
-    throwTacticEx `totalityOuter mVar (← inferType foo)
+    let recApp := mkAppN (mkConst (mainIT.name ++ erasureSuffix ++ "rec") [levelOne]) recMotives --TODO levels
+    let (methodGoals, recApp) ← appExprHoleN methods.size recApp --TODO
+    let recApp := mkApp recApp mainE
+    let recApp := mkAppN recApp $ (hArgs.map HeaderArg.toExpandedExprs).concat
+    let recApp := mkApp recApp mainw
+    assignExprMVar mVar recApp
+    --throwTacticEx "totalityOuter" mVar $ sCasesSubgoals[0].subst.get sMain
+    setGoals $ (← getGoals) ++ methodGoals
 
+#check InductionSubgoal.fields
+    
 instance : Inhabited (Syntax.SepArray ",") := Inhabited.mk $ Syntax.SepArray.ofElems #[]
 
 syntax idList := "[" ident,+,? "]"

@@ -62,9 +62,8 @@ open Tactic
 
 def solveAndSetGoals (val : Expr) (mids : List MVarId) : TacticM Unit := do
   let (g, gs) ← getMainGoal
-  withMVarContext g do
-    assignExprMVar g val
-    setGoals (mids ++ gs)
+  assignExprMVar g val
+  setGoals $ (← getGoals) ++ mids
 
 end Meta
 
