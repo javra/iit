@@ -74,10 +74,7 @@ inductive HeaderArg where
 
 private def HeaderArg.toExpandedExprs (ha : HeaderArg) : Array Expr :=
 match ha with
-| internal s m r => #[mkProj `PSigma 0 $ mkFVar s,
-                      mkProj `PSigma 1 $ mkFVar s,
-                      mkFVar m,
-                      mkFVar r]
+| internal s m r => #[mkFVar s, mkFVar m, mkFVar r]
 | external n     => #[mkFVar n]
 
 private partial def introHdArgs (mVar : MVarId) (hdType : Expr) (has : Array HeaderArg := #[]) :
@@ -97,18 +94,16 @@ private partial def totalityRecMotiveAux (e : Expr)
 match e with
 | forallE n t b _ => 
   match headerAppIdx? its t with
-  | some j => mkForallM (n ++ erasureSuffix) BinderInfo.default (mkConst $ (its.get! j).name ++ erasureSuffix) fun eFVar => do
-                let w := mkApp (wellfCtorTmS its t) eFVar
-                mkForallM (n ++ wellfSuffix) BinderInfo.default w fun wFVar => do
-                  let m := mkApp (← methodTmS its methods motives t t) $ ← mkPair eFVar wFVar
-                  mkForallM (n ++ motiveSuffix) BinderInfo.default m fun mFVar => do
-                    let ew ← mkPair eFVar wFVar
-                    let r := mkApp (mkApp (← elimRelationCtorTmS its motives methods t t) ew) mFVar
-                    mkForallM (n ++ relationSuffix) BinderInfo.default r fun rFVar => do
-                      let wref := mkApp wref eFVar
-                      let rref := mkApp rref $ ew
-                      let rref := mkApp rref $ mFVar
-                      totalityRecMotiveAux b wref rref mainE
+  | some j => mkForallM n e.binderInfo t fun sFVar => do
+                let se := mkFst sFVar
+                let sw := mkSnd sFVar
+                let m := mkApp (← methodTmS its methods motives t t) sFVar
+                mkForallM (n ++ motiveSuffix) BinderInfo.default m fun mFVar => do
+                  let r := mkAppN (← elimRelationCtorTmS its motives methods t t) #[sFVar, mFVar]
+                  mkForallM (n ++ relationSuffix) BinderInfo.default r fun rFVar => do
+                    let wref := mkApp wref se
+                    let rref := mkAppN rref #[sFVar, mFVar]
+                    totalityRecMotiveAux b wref rref mainE
   | none   => mkForallM n e.binderInfo t fun extFVar => do
                 let wref := mkApp wref extFVar
                 let rref := mkApp rref extFVar
@@ -151,6 +146,7 @@ def totalityOuterTac (hIdx : Nat) (its : List InductiveType) : TacticM Unit := d
       let mot ← totalityRecMotive motives methodss i its
       recMotives := recMotives.push mot
     let recApp := mkAppN (mkConst (mainIT.name ++ erasureSuffix ++ "rec") [levelOne]) recMotives --TODO levels
+    --throwTacticEx "totalityOuter" mVar recApp
     let (methodGoals, recApp) ← appExprHoleN methods.size recApp --TODO
     let recApp := mkApp recApp mainE
     let recApp := mkAppN recApp $ (hArgs.map HeaderArg.toExpandedExprs).concat

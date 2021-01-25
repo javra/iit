@@ -16,8 +16,8 @@ iit Ty : (Γ : Con) → Type where
 --iit Subb : (Δ Γ : Con) → Type where
 --| swap : (Δ Γ : Con) → (A : Subb Γ Δ) → Subb Δ Γ
 
-iit Foo : (m n : Nat) → Type where
-| bar : Foo 5 3
+--iit Foo : (m n : Nat) → Type where
+--| bar : Foo 5 3
 --| baz : (m n : Nat) → /-(p : Foo n m) →-/ Foo m n
 
 --iit Blubb : (Γ Δ : Con) → (n : Nat) → (A : Ty Δ) → (B : Ty Γ) → Type where
@@ -29,20 +29,32 @@ end
 
 open IIT
 
---set_option pp.all true
+noncomputable def Con_total' : Con.tot := by
+  totalityOuter 0 [Con, Ty] [Con.nil] [Ty.U]
+  intro Γ.w'
+  apply PSigma.mk
+  apply Con.nil.r
+  intros Δ.e' Δ.ih Γ'' Γ.m'' Γ.r'' Uw
+  have e : Γ''.1 = Δ.e' := by { cases Uw; rfl }
+  induction e
+  apply PSigma.mk
+  apply Ty.U.r
+  assumption
 
-#check @Con.E.rec
-noncomputable def Con_total : Con.tot := by
-  totalityOuter 0 [Con, Ty, Foo] [Con.nil] [Ty.U] [Foo.bar]
-  /-refine @Con.E.rec
-          (fun Γ.e => ∀ Γ.w, PSigma (Con.r Con.m Ty.m Con.nil.m Ty.U.m { fst := Γ.e, snd := Γ.w }))
-          (fun A.e => ∀ Γ.e Γ.w Γ.m (Γ.r : Con.r Con.m Ty.m Con.nil.m Ty.U.m { fst := Γ.e, snd := Γ.w } Γ.m) A.w, 
-            PSigma (@Ty.r Con.m Ty.m Con.nil.m Ty.U.m { fst := Γ.e, snd := Γ.w } Γ.m { fst := A.e, snd := A.w })) ?_ ?_ S.E S.w-/
-  skip --TODO finde heraus, wie refine die typen der loecher inferiert
-
-#check @Con.E.rec
+noncomputable def Ty_total' : Ty.tot := by
+  totalityOuter 1 [Con, Ty] [Con.nil] [Ty.U]
+  intro Γ.w'
+  apply PSigma.mk
+  apply Con.nil.r
+  intros Δ.e' Δ.ih Γ'' Γ.m'' Γ.r'' Uw
+  have e : Γ''.1 = Δ.e' := by { cases Uw; rfl }
+  induction e
+  apply PSigma.mk
+  apply Ty.U.r
+  assumption
 
 #exit
+
 noncomputable def Con_total : Con.tot := by
   totalityOuter 0 [Con, Ty, Tm] [Con.nil, Con.ext] [Ty.U, Ty.pi] [Tm.El]
   apply @Con.E.rec
@@ -110,6 +122,8 @@ noncomputable def Ty_total : Ty.tot := by
     apply PSigma.mk
     apply Ty.U.r
     assumption
+    intros Δ _ Γ' _ _ U.w
+    have e : Γ'.1 = Δ := by { cases U.w; rfl 
   focus
     intros Γ A B Γ.r A.r B.r Γ' Γ'.m Γ'.r π.w
     have e : Γ'.1 = Γ := by { cases π.w; rfl }
