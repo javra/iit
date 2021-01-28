@@ -13,7 +13,7 @@ open Array
 
 namespace IIT
 
-variables (its eits wits : List InductiveType)
+variable (its eits wits : List InductiveType)
 
 def sigmaHeader (i : Nat) (e : Expr := (its.get! i).type) (wref := mkConst (wits.get! i).name) : Expr :=
 match e with
@@ -59,13 +59,13 @@ do let hr ← sigmaHeader its eits wits i
    let ctors ← it.ctors.mapM fun ctor => do
      let sctor ← sigmaCtor its ctor.name ctor.type
      return Declaration.defnDecl { name := ctor.name,
-                                   lparams := [], --TODO
+                                   levelParams := [], --TODO
                                    value := sctor,
                                    type := ctor.type,
                                    hints := ReducibilityHints.regular 0,
                                    safety := DefinitionSafety.safe }
    let decl := Declaration.defnDecl { name     := (its.get! i).name, 
-                                      lparams  := [], --TODO
+                                      levelParams  := [], --TODO
                                       value    := hr
                                       type     := type,
                                       hints    := arbitrary,

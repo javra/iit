@@ -16,7 +16,7 @@ open Array
 
 namespace IIT
 
-variables (its : List InductiveType) (ls : List Level)
+variable (its : List InductiveType) (ls : List Level)
 
 def motiveSuffix : Name := "m"
 def methodSuffix : Name := "m"
@@ -47,7 +47,7 @@ match e with
 | _ => e
 
 section
-variables (methods : Array (Array Expr)) (motives : Array Expr)
+variable (methods : Array (Array Expr)) (motives : Array Expr)
 
 /- We invoke a dirty, dirty hack here:
    We hand on one version `em` of the expression where loose BVars refer to the model and one `e`
@@ -128,7 +128,7 @@ withMotives its ls fun motives =>
 
 section
 
-variables (motives : Array Expr) (methods : Array (Array Expr))
+variable (motives : Array Expr) (methods : Array (Array Expr))
 
 def relationSuffix : Name := "r"
 

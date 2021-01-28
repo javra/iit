@@ -13,7 +13,7 @@ open Tactic
 
 namespace IIT
 
-variables (its : List InductiveType) (ls : List Level)
+variable (its : List InductiveType) (ls : List Level)
   (motives : Array Expr) (methods : Array (Array Expr))
 
 partial def totalityType (l : Level) (e sref dref rref : Expr) : MetaM Expr := do
@@ -51,7 +51,7 @@ let tot ← totalityType its motives methods (ls.get! i) type (mkConst name) mot
 let tot ← mkForallFVars (motives ++ methods.concat) tot
 let type ← inferType tot
 let decl := Declaration.defnDecl { name     := name ++ "tot",
-                                   lparams  := [], -- TODO
+                                   levelParams  := [], -- TODO
                                    value    := tot,
                                    type     := type,
                                    hints    := arbitrary -- TODO

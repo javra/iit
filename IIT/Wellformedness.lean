@@ -18,7 +18,7 @@ def wellfSuffix : String := "w"
 
 section
 
-variables (its eits : List InductiveType)
+variable (its eits : List InductiveType)
 
 --TODO move the next three defs into some util file
 def headerAppIdx? (e : Expr) : Option Nat :=
