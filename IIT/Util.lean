@@ -65,6 +65,12 @@ def solveAndSetGoals (val : Expr) (mids : List MVarId) : TacticM Unit := do
   assignExprMVar g val
   setGoals $ (← getGoals) ++ mids
 
+instance : Inhabited CasesSubgoal := Inhabited.mk $ CasesSubgoal.mk arbitrary ""
+
+def casesPSigma (mVar : MVarId) (fVar : FVarId) (fstName sndName : Name) : TacticM (MVarId × Expr × Expr) := do
+  let sgs ← cases mVar fVar #[[fstName, sndName]]
+  return (sgs[0].mvarId, sgs[0].fields[0], sgs[0].fields[1])
+
 end Meta
 
 end Lean

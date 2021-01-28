@@ -78,7 +78,7 @@ match ha with
 | external n     => #[mkFVar n]
 
 private partial def introHdArgs (mVar : MVarId) (hdType : Expr) (has : Array HeaderArg := #[]) :
-  MetaM (Array HeaderArg × MVarId) := do --TODO swap FVarId for annotated child type
+  MetaM (Array HeaderArg × MVarId) := do
 match hdType with
 | forallE n t b _ =>
   match headerAppIdx? its t with
@@ -149,7 +149,38 @@ mkLambdaM "mainE" BinderInfo.default (mkConst $ name ++ erasureSuffix) fun EFVar
 
 def sMainName : Name := "S"
 
-instance : Inhabited CasesSubgoal := Inhabited.mk $ CasesSubgoal.mk arbitrary ""
+inductive CtorArg where
+| internal : FVarId → CtorArg
+| external : FVarId → CtorArg
+
+private partial def introErasedCtorArgs (mVar : MVarId) (ctorType : Expr) (cas : Array CtorArg := #[]) :
+  MetaM (Array CtorArg × MVarId) := do
+match ctorType with
+| forallE n t b _ =>
+  match headerAppIdx? its t with
+  | some _ => let (fVar, mVar) ← intro mVar (n ++ erasureSuffix)
+              introErasedCtorArgs mVar b $ cas.push $ CtorArg.internal fVar
+  | none   => let (fVar, mVar) ← intro mVar n
+              introErasedCtorArgs mVar b $ cas.push $ CtorArg.external fVar
+| _ => return (cas, mVar)
+
+def ihSuffix : Name := "ih"
+
+private partial def introIHs (mVar : MVarId) (ctorType : Expr) (fVars : Array FVarId := #[]) :
+  MetaM (Array FVarId × MVarId) := do
+match ctorType with
+| forallE n t b _ =>
+  match headerAppIdx? its t with
+  | some _ => let (fVar, mVar) ← intro mVar (n ++ ihSuffix)
+              introIHs mVar b $ fVars.push fVar
+  | none   => introIHs mVar b $ fVars
+| _ => return (fVars, mVar)
+
+def totalityInnerTac (hIdx sIdx ctorIdx : Nat) (its : List InductiveType) (mVar : MVarId) : TacticM MVarId := do
+  let ctor := (its.get! sIdx).ctors.get! ctorIdx
+  let (ctorArgs, mVar) ← introErasedCtorArgs its mVar ctor.type
+  let (ctorIHs, mVar) ← introIHs its mVar ctor.type
+  return mVar
 
 def totalityOuterTac (hIdx : Nat) (its : List InductiveType) : TacticM Unit := do
   let mainIT := its.get! hIdx
@@ -157,33 +188,30 @@ def totalityOuterTac (hIdx : Nat) (its : List InductiveType) : TacticM Unit := d
   let hType ← inferType $ mkConst mainIT.name --TODO levels?
   let (motives, mVar) ← introN mVar its.length (its.map fun it => it.name ++ "m")
   let (methodss, mVar) ← introMethods mVar (its.map fun it => it.ctors.map fun ctor => ctor.name)
+  let motives  := motives.map mkFVar
+  let methodss := methodss.map fun ms => ms.map mkFVar
   let methods := methodss.concat
   let (hArgs,   mVar) ← introHdArgs its mVar hType
   let (sMain,   mVar) ← intro mVar sMainName
-  let (sCasesSubgoals) ← cases mVar sMain #[[sMainName ++ erasureSuffix, sMainName ++ wellfSuffix]]
-  let mVar := sCasesSubgoals[0].mvarId
-  let mainE := sCasesSubgoals[0].fields[0]
-  let mainw := sCasesSubgoals[0].fields[1]
-  let motives  := motives.map mkFVar
-  let methodss := methodss.map fun ms => ms.map mkFVar
-  let methods  := methods.map mkFVar
+  let (mVar, mainE, mainw) ← casesPSigma mVar sMain (sMainName ++ erasureSuffix) (sMainName ++ wellfSuffix)
   withMVarContext mVar do
     let mut recMotives := #[]
     for i in [:its.length] do
       let mot ← totalityRecMotive motives methodss i its
       recMotives := recMotives.push mot
     let recApp := mkAppN (mkConst (mainIT.name ++ erasureSuffix ++ "rec") [levelOne]) recMotives --TODO levels
-    --throwTacticEx "totalityOuter" mVar recApp
     let (methodGoals, recApp) ← appExprHoleN methods.size recApp --TODO
-    let recApp := mkApp recApp mainE
-    let recApp := mkAppN recApp $ (hArgs.map HeaderArg.toExpandedExprs).concat
-    let recApp := mkApp recApp mainw
+    let recApp := mkAppN recApp (#[mainE] ++ (hArgs.map HeaderArg.toExpandedExprs).concat ++ #[mainw])
     assignExprMVar mVar recApp
-    --throwTacticEx "totalityOuter" mVar $ sCasesSubgoals[0].subst.get sMain
-    setGoals $ (← getGoals) ++ methodGoals
+    let mut i' := 0
+    let mut methodGoals := methodGoals.toArray
+    for i in [:methodss.size] do
+      for j in [:methodss[i].size] do
+        methodGoals ← methodGoals.modifyM i' $ fun g => 
+          totalityInnerTac hIdx i j its g
+        i' := i' + 1
+    setGoals $ (← getGoals) ++ methodGoals.toList
 
-#check InductionSubgoal.fields
-    
 instance : Inhabited (Syntax.SepArray ",") := Inhabited.mk $ Syntax.SepArray.ofElems #[]
 
 syntax idList := "[" ident,+,? "]"
