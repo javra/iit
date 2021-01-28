@@ -71,6 +71,7 @@ introMethods mVar ctorIdss (i + 1) (fVarss.push fVars)
 inductive HeaderArg where
 | internal : FVarId → FVarId → FVarId → HeaderArg
 | external : FVarId → HeaderArg
+deriving Inhabited
 
 private def HeaderArg.toExpandedExprs (ha : HeaderArg) : Array Expr :=
 match ha with
@@ -152,6 +153,7 @@ def sMainName : Name := "S"
 inductive CtorArg where
 | internal : FVarId → CtorArg
 | external : FVarId → CtorArg
+deriving Inhabited
 
 private partial def introErasedCtorArgs (mVar : MVarId) (ctorType : Expr) (cas : Array CtorArg := #[]) :
   MetaM (Array CtorArg × MVarId) := do
@@ -176,6 +178,19 @@ match ctorType with
   | none   => introIHs mVar b $ fVars
 | _ => return (fVars, mVar)
 
+private partial def hdArgsCases (mVar : MVarId) (hdArgs : Array HeaderArg) (fVars : Array (Expr × Expr) := #[]) : 
+  TacticM (Array (Expr × Expr) × MVarId) := do
+if fVars.size >= hdArgs.size then return (fVars, mVar) else do
+  let i := fVars.size
+  let lCtx ← getLCtx
+  match hdArgs[i] with
+  | HeaderArg.internal fVar _ _ => 
+    let name := (lCtx.get! fVar).userName
+    let (mVar, E, w) ← casesPSigma mVar fVar (name ++ erasureSuffix) (name ++ wellfSuffix)
+    hdArgsCases mVar hdArgs $ fVars.push (E, w)
+  | HeaderArg.external fVar =>
+    hdArgsCases mVar hdArgs $ fVars.push (mkFVar fVar, mkFVar fVar)
+
 def totalityInnerTac (hIdx sIdx ctorIdx : Nat) (its : List InductiveType) (mVar : MVarId) : TacticM MVarId := do
   let it   := its.get! sIdx
   let ctor := it.ctors.get! ctorIdx
@@ -183,7 +198,9 @@ def totalityInnerTac (hIdx sIdx ctorIdx : Nat) (its : List InductiveType) (mVar 
   let (ctorIHs, mVar) ← introIHs its mVar ctor.type
   let (hdArgs, mVar) ← introHdArgs its mVar it.type
   let (ctorw, mVar) ← intro mVar "ctorw"
-  return mVar
+  withMVarContext mVar do
+    let (Ews, mVar) ← hdArgsCases mVar hdArgs
+    return mVar
 
 def totalityOuterTac (hIdx : Nat) (its : List InductiveType) : TacticM Unit := do
   let mainIT := its.get! hIdx

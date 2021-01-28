@@ -21,7 +21,6 @@ noncomputable def Con_total' : Con.tot := by
   apply Con.ext.r (Γ.r := (Γ.ih _).snd) (A.r := (A.ih _ _ _ _).snd)
   repeat { cases ctorw; assumption }
   apply (Γ.ih _).snd
-  skip
   focus
    have e : Γ.1 = Δ.E := by { cases Γ; cases ctorw; rfl }
    induction e
