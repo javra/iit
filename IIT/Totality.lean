@@ -177,9 +177,12 @@ match ctorType with
 | _ => return (fVars, mVar)
 
 def totalityInnerTac (hIdx sIdx ctorIdx : Nat) (its : List InductiveType) (mVar : MVarId) : TacticM MVarId := do
-  let ctor := (its.get! sIdx).ctors.get! ctorIdx
+  let it   := its.get! sIdx
+  let ctor := it.ctors.get! ctorIdx
   let (ctorArgs, mVar) ← introErasedCtorArgs its mVar ctor.type
   let (ctorIHs, mVar) ← introIHs its mVar ctor.type
+  let (hdArgs, mVar) ← introHdArgs its mVar it.type
+  let (ctorw, mVar) ← intro mVar "ctorw"
   return mVar
 
 def totalityOuterTac (hIdx : Nat) (its : List InductiveType) : TacticM Unit := do
