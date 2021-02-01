@@ -71,6 +71,10 @@ def casesPSigma (mVar : MVarId) (fVar : FVarId) (fstName sndName : Name) : Tacti
   let sgs ← cases mVar fVar #[[fstName, sndName]]
   return (sgs[0].mvarId, sgs[0].fields[0], sgs[0].fields[1])
 
+def casesNoFields (mVar : MVarId) (fVar : FVarId) : TacticM MVarId := do
+  let sgs ← cases mVar fVar #[[]]
+  return sgs[0].mvarId
+
 partial def withLocalDeclDs {α} (names : Array Name) (vals : Array Expr) 
   (x : Array FVarId → MetaM α) (fVars : Array FVarId := #[]) : MetaM α :=
 let i := fVars.size
@@ -78,15 +82,18 @@ if i >= vals.size then x fVars else do
   withLocalDeclD names[i] vals[i] fun fVar => do
     withLocalDeclDs names vals x $ fVars.push fVar.fvarId!
 
-def metaHave (mVar : MVarId) (name : Name) (type : Expr) : MetaM (MVarId × (FVarId × MVarId)) := do
+/- Performs a Tactic akin to "have" and returns
+   1. the MVar for the auxiliary proof goal,
+   2. the MVar to continue working using a proof of the auxiliary statement, including a FVarId to ref it,
+   3. the expression to be assigned to the original proof goal to make it all work out. -/
+def metaHave (mVar : MVarId) (name : Name) (type : Expr) : MetaM (MVarId × (FVarId × MVarId) × Expr) := do
   let val ← mkFreshExprMVar type
   let valMVar := val.mvarId!
   let bodyType ← getMVarType mVar
   let f ← mkFreshExprMVar $ mkForall name BinderInfo.default type bodyType
   let fMVar := f.mvarId!
   let bodyMVar ← intro fMVar name
-  assignExprMVar mVar $ mkApp f val
-  return (valMVar, bodyMVar)
+  return (valMVar, bodyMVar, mkApp f val)
 
 end Meta
 

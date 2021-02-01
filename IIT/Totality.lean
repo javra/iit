@@ -178,8 +178,8 @@ match ctorType with
   | none   => introIHs mVar b $ fVars
 | _ => return (fVars, mVar)
 
-private partial def hdArgsCases (mVar : MVarId) (hdArgs : Array HeaderArg) (fVars : Array (Expr × Expr) := #[]) : 
-  TacticM (Array (Expr × Expr) × MVarId) := do
+private partial def hdArgsCases (mVar : MVarId) (hdArgs : Array HeaderArg)
+  (fVars : Array (Expr × Expr) := #[]) : TacticM (Array (Expr × Expr) × MVarId) := do
 if fVars.size >= hdArgs.size then return (fVars, mVar) else do
   let i := fVars.size
   let lCtx ← getLCtx
@@ -201,38 +201,53 @@ match e with
 | forallE _ _ b _ => collectCtorIndices b
 | _ => collectCtorIndicesTmS its e
 
-private partial def erasureIndexEqs (hdArgs : Array HeaderArg) (rhs : Array Expr) : MetaM (Array Expr) := do
-  let mut eqs : Array Expr := #[]
-  for i in [:hdArgs.size] do
-    match hdArgs[i] with
-    | HeaderArg.internal e _ _ => eqs := eqs.push $ ← mkEq rhs[i] (mkFVar e)
-    | HeaderArg.external e     => eqs := eqs.push $ ← mkEq rhs[i] (mkFVar e)
-  return eqs
+private partial def mkEqs (lhs rhs : Array Expr) : MetaM (Array Expr) := do
+  let lr := Array.zip lhs rhs
+  lr.mapM $ fun (lh, rh) => mkEq lh rh
+
+partial def proveEqs (mVar : MVarId) (eqs : Array Expr) (witness : FVarId) (i : Nat := 0)
+  (eqFVars : Array FVarId := #[]) :  TacticM (Array FVarId × MVarId) := do
+if i >= eqs.size then return (eqFVars, mVar) else do
+  let (eqMVar, (eqFVar, mVar'), mVarSolution) ← metaHave mVar "e''" eqs[i]
+  assignExprMVar mVar mVarSolution
+  withMVarContext eqMVar do
+    let eqMVar ← casesNoFields eqMVar witness
+    withMVarContext eqMVar do
+      let gs ← getGoals
+      setGoals [eqMVar]
+      evalTactic $ ← `(tactic|rfl)
+      setGoals gs
+  withMVarContext mVar' do
+    proveEqs mVar' eqs witness (i + 1) $ eqFVars.push eqFVar
 
 def totalityInnerTac (hIdx sIdx ctorIdx : Nat) (its : List InductiveType) (mVar : MVarId) : TacticM MVarId := do
   let it   := its.get! sIdx
   let ctor := it.ctors.get! ctorIdx
   let (ctorArgs, mVar) ← introErasedCtorArgs its mVar ctor.type
-  let (ctorIHs, mVar) ← introIHs its mVar ctor.type
-  let (hdArgs, mVar) ← introHdArgs its mVar it.type
-  if hdArgs.size > 0 then
-   match hdArgs[0] with
-   | HeaderArg.internal e _ _ => throwError $ ← inferType $ mkFVar e
-   | _ => throwError "foo"
-  let (ctorw, mVar) ← intro mVar "ctorw"
-  let (Ews, mVar) ← hdArgsCases mVar hdArgs
   withMVarContext mVar do
-    let ctorIndices ← collectCtorIndices its ctor.type
-    let ctorIndices := ctorIndices.map fun ci => instantiateRev ci (Ews.map Prod.fst)
-    let eqs ← erasureIndexEqs hdArgs ctorIndices
-    let mut mVar := mVar
-    for i in [:hdArgs.size] do
-      let (eqMVar, (eFVar, mVar)) ← metaHave mVar "e'" eqs[i]
+    let (ctorIHs, mVar) ← introIHs its mVar ctor.type
+    let (hdArgs, mVar) ← introHdArgs its mVar it.type
+    withMVarContext mVar do
+      let (Ews, mVar) ← hdArgsCases mVar hdArgs
       withMVarContext mVar do
-        throwTacticEx "totalityInner" mVar $ ← inferType (mkFVar eFVar)
-      mVar := mVar
-    --throwTacticEx "totalityInner" mVar eqs
-    return mVar
+        let (ctorw, mVar) ← intro mVar "ctorw"
+        withMVarContext mVar do
+          let ctorIndices ← collectCtorIndices its ctor.type
+          let ctorIndices := ctorIndices.map fun ci => instantiateRev ci (Ews.map Prod.fst)
+          let eqs ← mkEqs ctorIndices (Ews.map Prod.fst)
+          let (eqFVars, mVar) ← proveEqs mVar eqs ctorw
+          return mVar
+
+
+
+/-
+              --let (eqMVar, (eFVar, mVar'), mVarSolution) ← metaHave mVar "e''" eqs[i]
+              --let eqMVar ← casesNoFields eqMVar ctorw
+              --withMVarContext eqMVar do
+                --let lhType ← inferType ctorIndices[i]
+                --assignExprMVar eqMVar $ mkApp (mkApp (mkConst "Eq.rfl") lhType) ctorIndices[i]
+                --assignExprMVar mVar mVarSolution
+-/
 
 def totalityOuterTac (hIdx : Nat) (its : List InductiveType) : TacticM Unit := do
   let mainIT := its.get! hIdx
