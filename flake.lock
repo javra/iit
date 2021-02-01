@@ -40,11 +40,11 @@
         "temci": "temci"
       },
       "locked": {
-        "lastModified": 1610665114,
-        "narHash": "sha256-QhdWRfp3g5hwGAO1nerfm9GRpAcqC8SgOngdksEO08M=",
+        "lastModified": 1611845507,
+        "narHash": "sha256-BWgpRe6v25dQBVCQBfK/sTTG058zenq9HJaX1nCH3/w=",
         "owner": "leanprover",
         "repo": "lean4",
-        "rev": "6a39c65bd28eb0e28c3870188f348c8914502718",
+        "rev": "434564b125808c8b50dbd970eb4e5b9334bbc96f",
         "type": "github"
       },
       "original": {
@@ -106,11 +106,11 @@
         "nixpkgs": "nixpkgs"
       },
       "locked": {
-        "lastModified": 1605624824,
-        "narHash": "sha256-hJnqMzKKHjVrOTanOdb74kokOV/k5yFuQO2c2Jkm51A=",
+        "lastModified": 1611597793,
+        "narHash": "sha256-xL3NQJnuGvvay+PWFCQ3fShZHwmiy0PmgqHX6yFUX0M=",
         "owner": "NixOS",
         "repo": "nix",
-        "rev": "ae3191666f1828d9694fb615a721d409fb8582bd",
+        "rev": "36c4d6f59247826dde32ad2e6b5a9471a9a1c911",
         "type": "github"
       },
       "original": {

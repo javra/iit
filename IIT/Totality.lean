@@ -191,15 +191,47 @@ if fVars.size >= hdArgs.size then return (fVars, mVar) else do
   | HeaderArg.external fVar =>
     hdArgsCases mVar hdArgs $ fVars.push (mkFVar fVar, mkFVar fVar)
 
+private def collectCtorIndicesTmS (e : Expr) (inds : Array Expr := #[]) : Array Expr :=
+match e with
+| app f e _   => inds.push (wellfCtorTmP its e)
+| _           => inds
+
+private def collectCtorIndices (e : Expr) : MetaM (Array Expr) := --TODO replace this by a simple call to some Expr def
+match e with
+| forallE _ _ b _ => collectCtorIndices b
+| _ => collectCtorIndicesTmS its e
+
+private partial def erasureIndexEqs (hdArgs : Array HeaderArg) (rhs : Array Expr) : MetaM (Array Expr) := do
+  let mut eqs : Array Expr := #[]
+  for i in [:hdArgs.size] do
+    match hdArgs[i] with
+    | HeaderArg.internal e _ _ => eqs := eqs.push $ ← mkEq rhs[i] (mkFVar e)
+    | HeaderArg.external e     => eqs := eqs.push $ ← mkEq rhs[i] (mkFVar e)
+  return eqs
+
 def totalityInnerTac (hIdx sIdx ctorIdx : Nat) (its : List InductiveType) (mVar : MVarId) : TacticM MVarId := do
   let it   := its.get! sIdx
   let ctor := it.ctors.get! ctorIdx
   let (ctorArgs, mVar) ← introErasedCtorArgs its mVar ctor.type
   let (ctorIHs, mVar) ← introIHs its mVar ctor.type
   let (hdArgs, mVar) ← introHdArgs its mVar it.type
+  if hdArgs.size > 0 then
+   match hdArgs[0] with
+   | HeaderArg.internal e _ _ => throwError $ ← inferType $ mkFVar e
+   | _ => throwError "foo"
   let (ctorw, mVar) ← intro mVar "ctorw"
+  let (Ews, mVar) ← hdArgsCases mVar hdArgs
   withMVarContext mVar do
-    let (Ews, mVar) ← hdArgsCases mVar hdArgs
+    let ctorIndices ← collectCtorIndices its ctor.type
+    let ctorIndices := ctorIndices.map fun ci => instantiateRev ci (Ews.map Prod.fst)
+    let eqs ← erasureIndexEqs hdArgs ctorIndices
+    let mut mVar := mVar
+    for i in [:hdArgs.size] do
+      let (eqMVar, (eFVar, mVar)) ← metaHave mVar "e'" eqs[i]
+      withMVarContext mVar do
+        throwTacticEx "totalityInner" mVar $ ← inferType (mkFVar eFVar)
+      mVar := mVar
+    --throwTacticEx "totalityInner" mVar eqs
     return mVar
 
 def totalityOuterTac (hIdx : Nat) (its : List InductiveType) : TacticM Unit := do
@@ -230,7 +262,7 @@ def totalityOuterTac (hIdx : Nat) (its : List InductiveType) : TacticM Unit := d
         methodGoals ← methodGoals.modifyM i' $ fun g => 
           totalityInnerTac hIdx i j its g
         i' := i' + 1
-    setGoals $ (← getGoals) ++ methodGoals.toList
+    setGoals methodGoals.toList
 
 instance : Inhabited (Syntax.SepArray ",") := Inhabited.mk $ Syntax.SepArray.ofElems #[]
 
