@@ -22,8 +22,7 @@ noncomputable def Con_total' : Con.tot  := by
   repeat { cases ctorw; assumption }
   apply (Γ.ih _).snd
   focus
-    have e : Γ.E = Δ.E := by { cases ctorw; rfl }
-    induction e
+    induction e''
     apply PSigma.mk
     apply Ty.U.r
     assumption

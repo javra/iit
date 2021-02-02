@@ -155,6 +155,11 @@ inductive CtorArg where
 | external : FVarId → CtorArg
 deriving Inhabited
 
+private def CtorArg.toExpr (ca  : CtorArg) : Expr :=
+match ca with
+| internal fv => mkFVar fv
+| external fv => mkFVar fv
+
 private partial def introErasedCtorArgs (mVar : MVarId) (ctorType : Expr) (cas : Array CtorArg := #[]) :
   MetaM (Array CtorArg × MVarId) := do
 match ctorType with
@@ -206,7 +211,7 @@ private partial def mkEqs (lhs rhs : Array Expr) : MetaM (Array Expr) := do
   lr.mapM $ fun (lh, rh) => mkEq lh rh
 
 partial def proveEqs (mVar : MVarId) (eqs : Array Expr) (witness : FVarId) (i : Nat := 0)
-  (eqFVars : Array FVarId := #[]) :  TacticM (Array FVarId × MVarId) := do
+  (eqFVars : Array FVarId := #[]) :  TacticM (Array FVarId × MVarId) :=
 if i >= eqs.size then return (eqFVars, mVar) else do
   let (eqMVar, (eqFVar, mVar'), mVarSolution) ← metaHave mVar "e''" eqs[i]
   assignExprMVar mVar mVarSolution
@@ -233,21 +238,11 @@ def totalityInnerTac (hIdx sIdx ctorIdx : Nat) (its : List InductiveType) (mVar 
         let (ctorw, mVar) ← intro mVar "ctorw"
         withMVarContext mVar do
           let ctorIndices ← collectCtorIndices its ctor.type
-          let ctorIndices := ctorIndices.map fun ci => instantiateRev ci (Ews.map Prod.fst)
+          let ctorIndices := ctorIndices.map fun ci =>
+            instantiateRev ci $ ctorArgs.map CtorArg.toExpr
           let eqs ← mkEqs ctorIndices (Ews.map Prod.fst)
           let (eqFVars, mVar) ← proveEqs mVar eqs ctorw
           return mVar
-
-
-
-/-
-              --let (eqMVar, (eFVar, mVar'), mVarSolution) ← metaHave mVar "e''" eqs[i]
-              --let eqMVar ← casesNoFields eqMVar ctorw
-              --withMVarContext eqMVar do
-                --let lhType ← inferType ctorIndices[i]
-                --assignExprMVar eqMVar $ mkApp (mkApp (mkConst "Eq.rfl") lhType) ctorIndices[i]
-                --assignExprMVar mVar mVarSolution
--/
 
 def totalityOuterTac (hIdx : Nat) (its : List InductiveType) : TacticM Unit := do
   let mainIT := its.get! hIdx
