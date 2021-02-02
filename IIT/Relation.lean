@@ -56,7 +56,7 @@ def methodTmP (e em : Expr) : Expr :=
 match e with
 | app f e d => let fm := appFn! em
                let em := appArg! em
-               mkApp (mkApp (methodTmP f fm) e) em
+               mkApp (mkApp (methodTmP f fm) e) (methodTmP e em)
 | _           =>
   match ctorAppIdx? its em with
   | some (i, j) => methods[i][j]

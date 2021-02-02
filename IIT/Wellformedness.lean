@@ -62,7 +62,7 @@ else mkConst n l
 def wellfCtorTmP (e : Expr) : Expr :=
 match e with
 | const n l _ => addEIfCtor its n l
-| app f e _   => mkApp (wellfCtorTmP f) e
+| app f e _   => mkApp (wellfCtorTmP f) (wellfCtorTmP e)
 | _           => e
 
 def wellfCtorTmS (e : Expr) : Expr :=
