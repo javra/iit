@@ -225,6 +225,12 @@ if i >= eqs.size then return (eqFVars, mVar) else do
   withMVarContext mVar' do
     proveEqs mVar' eqs witness (i + 1) $ eqFVars.push eqFVar
 
+partial def casesEqs (mVar : MVarId) (eqFVars : Array FVarId) (i : Nat := 0) : TacticM MVarId :=
+if i >= eqFVars.size then return mVar else do
+  let mVar ← casesNoFields mVar eqFVars[i]
+  withMVarContext mVar do
+    casesEqs mVar eqFVars (i + 1)
+
 def totalityInnerTac (hIdx sIdx ctorIdx : Nat) (its : List InductiveType) (mVar : MVarId) : TacticM MVarId := do
   let it   := its.get! sIdx
   let ctor := it.ctors.get! ctorIdx
@@ -242,7 +248,9 @@ def totalityInnerTac (hIdx sIdx ctorIdx : Nat) (its : List InductiveType) (mVar 
             instantiateRev ci $ ctorArgs.map CtorArg.toExpr
           let eqs ← mkEqs ctorIndices (Ews.map Prod.fst)
           let (eqFVars, mVar) ← proveEqs mVar eqs ctorw
-          return mVar
+          withMVarContext mVar do
+            let mVar ← casesEqs mVar eqFVars
+            return mVar
 
 def totalityOuterTac (hIdx : Nat) (its : List InductiveType) : TacticM Unit := do
   let mainIT := its.get! hIdx

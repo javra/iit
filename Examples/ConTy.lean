@@ -22,19 +22,15 @@ noncomputable def Con_total' : Con.tot  := by
   repeat { cases ctorw; assumption }
   apply (Γ.ih _).snd
   focus
-    induction e''
     apply PSigma.mk
     apply Ty.U.r
     assumption
   focus
-   induction e''
    have e' : Γ.m = Con.nil.m := by { cases Γ.r; rfl }
    induction e'
    refine PSigma.mk ?_ ?_
    apply Ty.U'.m
    apply Ty.U'.r
-
-#exit
 
 noncomputable def Ty_total' : Ty.tot := by
   totalityOuter 1 [Con, Ty] [Con.nil, Con.ext] [Ty.U, Ty.U']
@@ -45,14 +41,10 @@ noncomputable def Ty_total' : Ty.tot := by
   repeat { cases ctorw; assumption }
   apply (Γ.ih _).snd
   focus
-    have e : Γ.E = Δ.E := by { cases ctorw; rfl }
-    induction e
     apply PSigma.mk
     apply Ty.U.r
     assumption
   focus
-   have e : Con.nil.E = Γ.E := by { cases ctorw; rfl }
-   induction e
    have e' : Γ.m = Con.nil.m := by { cases Γ.r; rfl }
    induction e'
    refine PSigma.mk ?_ ?_
