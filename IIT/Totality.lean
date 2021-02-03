@@ -68,28 +68,6 @@ if i >= ctorIdss.length then return (fVarss, mVar) else do
 let (fVars, mVar) ← introN mVar (ctorIdss.get! i).length ((ctorIdss.get! i).map fun n => n ++ "m")
 introMethods mVar ctorIdss (i + 1) (fVarss.push fVars)
 
-inductive HeaderArg where
-| internal : FVarId → FVarId → FVarId → HeaderArg
-| external : FVarId → HeaderArg
-deriving Inhabited
-
-private def HeaderArg.toExpandedExprs (ha : HeaderArg) : Array Expr :=
-match ha with
-| internal s m r => #[mkFVar s, mkFVar m, mkFVar r]
-| external n     => #[mkFVar n]
-
-private partial def introHdArgs (mVar : MVarId) (hdType : Expr) (has : Array HeaderArg := #[]) :
-  MetaM (Array HeaderArg × MVarId) := do
-match hdType with
-| forallE n t b _ =>
-  match headerAppIdx? its t with
-  | some _ => let (fVars', mVar) ← introN mVar 3 [n, n ++ motiveSuffix, n ++ relationSuffix]
-              let ha := HeaderArg.internal fVars'[0] fVars'[1] fVars'[2]
-              introHdArgs mVar b (has.push ha)
-  | none   => let (fVar, mVar) ← intro mVar n
-              introHdArgs mVar b (has.push $ HeaderArg.external fVar)
-| _ => return (has, mVar)
-
 private partial def totalityRecMotiveAux_old (e : Expr) 
   (wref rref : Expr) (mainE : Expr) : MetaM Expr := do
 match e with
@@ -150,6 +128,26 @@ mkLambdaM "mainE" BinderInfo.default (mkConst $ name ++ erasureSuffix) fun EFVar
 
 def sMainName : Name := "S"
 
+inductive HeaderArg where
+| internal : FVarId → FVarId → FVarId → HeaderArg
+| external : FVarId → HeaderArg
+deriving Inhabited
+
+private def HeaderArg.toExpandedExprs (ha : HeaderArg) : Array Expr :=
+match ha with
+| internal s m r => #[mkFVar s, mkFVar m, mkFVar r]
+| external n     => #[mkFVar n]
+
+inductive HeaderArg' where
+| internal : FVarId → FVarId → FVarId → FVarId → HeaderArg'
+| external : FVarId → HeaderArg'
+deriving Inhabited
+
+private def HeaderArg'.toErasureOrExt (ha : HeaderArg') : Expr :=
+match ha with
+| internal e _ _ _ => mkFVar e
+| external n       => mkFVar n
+
 inductive CtorArg where
 | internal : FVarId → CtorArg
 | external : FVarId → CtorArg
@@ -159,6 +157,32 @@ private def CtorArg.toExpr (ca  : CtorArg) : Expr :=
 match ca with
 | internal fv => mkFVar fv
 | external fv => mkFVar fv
+
+private partial def introHdArgs (mVar : MVarId) (hdType : Expr) (has : Array HeaderArg := #[]) :
+  MetaM (Array HeaderArg × MVarId) := do
+match hdType with
+| forallE n t b _ =>
+  match headerAppIdx? its t with
+  | some _ => let (fVars', mVar) ← introN mVar 3 [n, n ++ motiveSuffix, n ++ relationSuffix]
+              let ha := HeaderArg.internal fVars'[0] fVars'[1] fVars'[2]
+              introHdArgs mVar b (has.push ha)
+  | none   => let (fVar, mVar) ← intro mVar n
+              introHdArgs mVar b (has.push $ HeaderArg.external fVar)
+| _ => return (has, mVar)
+
+private partial def introCasesHdArgs (mVar : MVarId) (hdType : Expr) (has : Array HeaderArg' := #[]) :
+  MetaM (Array HeaderArg' × MVarId) := do
+match hdType with
+| forallE n t b _ =>
+  match headerAppIdx? its t with
+  | some _ => let (sfVar, mVar) ← intro mVar n
+              let (EfVar, wfVar, mVar) ← casesPSigma mVar sfVar (n ++ erasureSuffix) (n ++ wellfSuffix)
+              let (fVars', mVar) ← introN mVar 2 [n ++ motiveSuffix, n ++ relationSuffix]
+              let ha := HeaderArg'.internal EfVar wfVar fVars'[0] fVars'[0]
+              introCasesHdArgs mVar b (has.push ha)
+  | none   => let (fVar, mVar) ← intro mVar n
+              introCasesHdArgs mVar b (has.push $ HeaderArg'.external fVar)
+| _ => return (has, mVar)
 
 private partial def introErasedCtorArgs (mVar : MVarId) (ctorType : Expr) (cas : Array CtorArg := #[]) :
   MetaM (Array CtorArg × MVarId) := do
@@ -183,22 +207,10 @@ match ctorType with
   | none   => introIHs mVar b $ fVars
 | _ => return (fVars, mVar)
 
-private partial def hdArgsCases (mVar : MVarId) (hdArgs : Array HeaderArg)
-  (fVars : Array (Expr × Expr) := #[]) : TacticM (Array (Expr × Expr) × MVarId) := do
-if fVars.size >= hdArgs.size then return (fVars, mVar) else do
-  let i := fVars.size
-  let lCtx ← getLCtx
-  match hdArgs[i] with
-  | HeaderArg.internal fVar _ _ => 
-    let name := (lCtx.get! fVar).userName
-    let (mVar, E, w) ← casesPSigma mVar fVar (name ++ erasureSuffix) (name ++ wellfSuffix)
-    hdArgsCases mVar hdArgs $ fVars.push (E, w)
-  | HeaderArg.external fVar =>
-    hdArgsCases mVar hdArgs $ fVars.push (mkFVar fVar, mkFVar fVar)
-
-private def collectCtorIndicesTmS (e : Expr) (inds : Array Expr := #[]) : Array Expr :=
+private def collectCtorIndicesTmS (e : Expr) (inds : Array Expr := #[]) : Array Expr := do
 match e with
-| app f e _   => inds.push (wellfCtorTmP its e)
+| app f e _   => let inds ← collectCtorIndicesTmS f inds
+                 inds.push (wellfCtorTmP its e)
 | _           => inds
 
 private def collectCtorIndices (e : Expr) : MetaM (Array Expr) := --TODO replace this by a simple call to some Expr def
@@ -237,20 +249,19 @@ def totalityInnerTac (hIdx sIdx ctorIdx : Nat) (its : List InductiveType) (mVar 
   let (ctorArgs, mVar) ← introErasedCtorArgs its mVar ctor.type
   withMVarContext mVar do
     let (ctorIHs, mVar) ← introIHs its mVar ctor.type
-    let (hdArgs, mVar) ← introHdArgs its mVar it.type
+    let (hdArgs, mVar) ← introCasesHdArgs its mVar it.type
     withMVarContext mVar do
-      let (Ews, mVar) ← hdArgsCases mVar hdArgs
+      let (ctorw, mVar) ← intro mVar "ctorw"
       withMVarContext mVar do
-        let (ctorw, mVar) ← intro mVar "ctorw"
+        let ctorIndices ← collectCtorIndices its ctor.type
+        let ctorIndices := ctorIndices.map fun ci =>
+          instantiateRev ci $ ctorArgs.map CtorArg.toExpr
+        let eqs ← mkEqs ctorIndices $ hdArgs.map HeaderArg'.toErasureOrExt
+        logInfo $ hdArgs.map HeaderArg'.toErasureOrExt
+        let (eqFVars, mVar) ← proveEqs mVar eqs ctorw
         withMVarContext mVar do
-          let ctorIndices ← collectCtorIndices its ctor.type
-          let ctorIndices := ctorIndices.map fun ci =>
-            instantiateRev ci $ ctorArgs.map CtorArg.toExpr
-          let eqs ← mkEqs ctorIndices (Ews.map Prod.fst)
-          let (eqFVars, mVar) ← proveEqs mVar eqs ctorw
-          withMVarContext mVar do
-            let mVar ← casesEqs mVar eqFVars
-            return mVar
+          let mVar ← casesEqs mVar eqFVars
+          return mVar
 
 def totalityOuterTac (hIdx : Nat) (its : List InductiveType) : TacticM Unit := do
   let mainIT := its.get! hIdx
@@ -263,7 +274,7 @@ def totalityOuterTac (hIdx : Nat) (its : List InductiveType) : TacticM Unit := d
   let methods := methodss.concat
   let (hArgs,   mVar) ← introHdArgs its mVar hType
   let (sMain,   mVar) ← intro mVar sMainName
-  let (mVar, mainE, mainw) ← casesPSigma mVar sMain (sMainName ++ erasureSuffix) (sMainName ++ wellfSuffix)
+  let (mainE, mainw, mVar) ← casesPSigma mVar sMain (sMainName ++ erasureSuffix) (sMainName ++ wellfSuffix)
   withMVarContext mVar do
     let mut recMotives := #[]
     for i in [:its.length] do
@@ -271,7 +282,8 @@ def totalityOuterTac (hIdx : Nat) (its : List InductiveType) : TacticM Unit := d
       recMotives := recMotives.push mot
     let recApp := mkAppN (mkConst (mainIT.name ++ erasureSuffix ++ "rec") [levelOne]) recMotives --TODO levels
     let (methodGoals, recApp) ← appExprHoleN methods.size recApp --TODO
-    let recApp := mkAppN recApp (#[mainE] ++ (hArgs.map HeaderArg.toExpandedExprs).concat ++ #[mainw])
+    let recApp := mkAppN recApp (#[mkFVar mainE] ++ (hArgs.map HeaderArg.toExpandedExprs).concat 
+                                                 ++ #[mkFVar mainw])
     assignExprMVar mVar recApp
     let mut i' := 0
     let mut methodGoals := methodGoals.toArray
