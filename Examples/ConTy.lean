@@ -15,38 +15,38 @@ end
 
 noncomputable def Con_total' : Con.tot  := by
   totalityOuter 0 [Con, Ty] [Con.nil, Con.ext] [Ty.U, Ty.U']
-  apply PSigma.mk
+  refine PSigma.mk ?_ ?_
+  apply Con.nil.m
   apply Con.nil.r
   apply PSigma.mk
-  apply Con.ext.r (Γ.r := (Γ.ih _).snd) (A.r := (A.ih _ _ _ _).snd)
+  apply Con.ext.r (Γ.r := (Γ.ih _).2) (A.r := (A.ih _ _ _ _).2) -- this is sooo fragile!
   repeat { cases ctorw; assumption }
-  apply (Γ.ih _).snd
-  focus
-    apply PSigma.mk
-    apply Ty.U.r
-    assumption
-  focus
-   have e' : Γ.m = Con.nil.m := by { cases Γ.r; rfl }
-   induction e'
-   refine PSigma.mk ?_ ?_
-   apply Ty.U'.m
-   apply Ty.U'.r
+  apply (Γ.ih _).2
+  refine PSigma.mk ?_ ?_
+  apply Ty.U.m
+  apply Ty.U.r
+  assumption
+  have e' : Γ.m = Con.nil.m := by { cases Γ.r; rfl }
+  induction e'
+  refine PSigma.mk ?_ ?_
+  apply Ty.U'.m
+  apply Ty.U'.r
 
 noncomputable def Ty_total' : Ty.tot := by
   totalityOuter 1 [Con, Ty] [Con.nil, Con.ext] [Ty.U, Ty.U']
-  apply PSigma.mk
+  refine PSigma.mk ?_ ?_
+  apply Con.nil.m
   apply Con.nil.r
   apply PSigma.mk
-  apply Con.ext.r (Γ.r := (Γ.ih _).snd) (A.r := (A.ih _ _ _ _).snd)
+  apply Con.ext.r (Γ.r := (Γ.ih _).2) (A.r := (A.ih _ _ _ _).2) -- this is sooo fragile!
   repeat { cases ctorw; assumption }
-  apply (Γ.ih _).snd
-  focus
-    apply PSigma.mk
-    apply Ty.U.r
-    assumption
-  focus
-   have e' : Γ.m = Con.nil.m := by { cases Γ.r; rfl }
-   induction e'
-   refine PSigma.mk ?_ ?_
-   apply Ty.U'.m
-   apply Ty.U'.r
+  apply (Γ.ih _).2
+  refine PSigma.mk ?_ ?_
+  apply Ty.U.m
+  apply Ty.U.r
+  assumption
+  have e' : Γ.m = Con.nil.m := by { cases Γ.r; rfl }
+  induction e'
+  refine PSigma.mk ?_ ?_
+  apply Ty.U'.m
+  apply Ty.U'.r

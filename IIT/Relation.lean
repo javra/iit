@@ -156,7 +156,7 @@ match e with
               let td   := mkApp td (mkBVar 0)
               let sref := mkApp (liftBVarsTwo sref) (mkBVar 1)
               let dref := mkApp (mkApp (liftBVarsTwo dref) (mkBVar 1)) (mkBVar 0)
-              mkForall n BinderInfo.implicit t $
+              mkForall n BinderInfo.default t $
               mkForall (n ++ motiveSuffix) e.binderInfo td $
               elimRelationHeader b' sref dref
   | none   => let sref := mkApp (liftBVarsOne sref) $ mkBVar 0

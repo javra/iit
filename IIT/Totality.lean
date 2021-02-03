@@ -95,20 +95,22 @@ match e with
 private partial def totalityRecMotiveAux (e : Expr) 
   (wref rref : Expr) (mainE : Expr) (em er : Expr := e) : MetaM Expr := do
 match e with
-| forallE n t b _ => do
+| forallE n t b _ =>
   match headerAppIdx? its t with
-  | some j => (let m := mkApp (← methodTmS its methods motives (liftBVarsOne t) (liftBVarsOne $ bindingDomain! em)) (mkBVar 0)
-               let r := mkAppN (← elimRelationCtorTmS its motives methods (liftBVarsTwo t) (liftBVarsTwo $ bindingDomain! er))
-                          #[mkBVar 1, mkBVar 0]
-	       let wref := mkApp (liftBVarsThree wref) $ mkFst $ mkBVar 2
-	       let rref := mkAppN (liftBVarsThree rref) #[mkBVar 2, mkBVar 1]
-	       let b'   := liftBVarsTwo b
-	       let bm   := liftBVarsOne $ bindingBody! em
-	       let br   := bindingBody! er
-               return mkForall n e.binderInfo t $
-                 mkForall (n ++ motiveSuffix) BinderInfo.default m $
-	         mkForall (n ++ relationSuffix) BinderInfo.default r $
-	         ← totalityRecMotiveAux b' wref rref mainE bm br)
+  | some j => let m ← methodTmS its methods motives (liftBVarsOne t) (liftBVarsOne $ bindingDomain! em)
+              let m := mkApp m (mkBVar 0)
+              let r ← elimRelationCtorTmS its motives methods (liftBVarsTwo t)
+                        (liftBVarsTwo $ bindingDomain! er)
+              let r := mkAppN r #[mkBVar 1, mkBVar 0]
+	      let wref := mkApp (liftBVarsThree wref) $ mkFst $ mkBVar 2
+	      let rref := mkAppN (liftBVarsThree rref) #[mkBVar 2, mkBVar 1]
+	      let b'   := liftBVarsTwo b
+	      let bm   := liftBVarsOne $ bindingBody! em
+	      let br   := bindingBody! er
+              return mkForall n e.binderInfo t $
+                mkForall (n ++ motiveSuffix) BinderInfo.default m $
+	        mkForall (n ++ relationSuffix) BinderInfo.default r $
+	        ← totalityRecMotiveAux b' wref rref mainE bm br
   | none => let wref := mkApp (liftBVarsOne wref) (mkBVar 0)
             let rref := mkApp (liftBVarsOne wref) (mkBVar 0)
             let bm   := bindingBody! em
@@ -257,7 +259,6 @@ def totalityInnerTac (hIdx sIdx ctorIdx : Nat) (its : List InductiveType) (mVar 
         let ctorIndices := ctorIndices.map fun ci =>
           instantiateRev ci $ ctorArgs.map CtorArg.toExpr
         let eqs ← mkEqs ctorIndices $ hdArgs.map HeaderArg'.toErasureOrExt
-        logInfo $ hdArgs.map HeaderArg'.toErasureOrExt
         let (eqFVars, mVar) ← proveEqs mVar eqs ctorw
         withMVarContext mVar do
           let mVar ← casesEqs mVar eqFVars
@@ -287,11 +288,11 @@ def totalityOuterTac (hIdx : Nat) (its : List InductiveType) : TacticM Unit := d
     assignExprMVar mVar recApp
     let mut i' := 0
     let mut methodGoals := methodGoals.toArray
-    for i in [:methodss.size] do
+    /-for i in [:methodss.size] do
       for j in [:methodss[i].size] do
         methodGoals ← methodGoals.modifyM i' $ fun g => 
           totalityInnerTac hIdx i j its g
-        i' := i' + 1
+        i' := i' + 1-/
     setGoals methodGoals.toList
 
 instance : Inhabited (Syntax.SepArray ",") := Inhabited.mk $ Syntax.SepArray.ofElems #[]
