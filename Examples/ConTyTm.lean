@@ -19,14 +19,11 @@ open IIT
 
 noncomputable def Con_total' : Con.tot := by
   totalityOuter 0 [Con, Ty, Tm] [Con.nil] [Ty.U] [Tm.El]
-  refine PSigma.mk ?_ ?_
   apply Con.nil.m
   apply Con.nil.r
-  refine PSigma.mk ?_ ?_
   apply Ty.U.m
   apply Ty.U.r
   assumption
-  refine PSigma.mk ?_ ?_
   have e : Con.nil.m = Γ.m := by { cases Γ.r; rfl }
   induction e
   have e : Ty.U.m _ = A.m := by { cases A.r; rfl }
@@ -39,14 +36,11 @@ noncomputable def Con_total' : Con.tot := by
 
 noncomputable def Ty_total' : Ty.tot := by
   totalityOuter 1 [Con, Ty, Tm] [Con.nil] [Ty.U] [Tm.El]
-  refine PSigma.mk ?_ ?_
   apply Con.nil.m
   apply Con.nil.r
-  refine PSigma.mk ?_ ?_
   apply Ty.U.m
   apply Ty.U.r
   assumption
-  refine PSigma.mk ?_ ?_
   have e : Con.nil.m = Γ.m := by { cases Γ.r; rfl }
   induction e
   have e : Ty.U.m _ = A.m := by { cases A.r; rfl }

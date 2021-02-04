@@ -250,7 +250,8 @@ if i >= eqFVars.size then return mVar else do
   withMVarContext mVar do
     casesEqs mVar eqFVars (i + 1)
 
-def totalityInnerTac (hIdx sIdx ctorIdx : Nat) (its : List InductiveType) (mVar : MVarId) : TacticM MVarId := do
+def totalityInnerTac (hIdx sIdx ctorIdx : Nat) (its : List InductiveType) (mVar : MVarId) :
+  TacticM (Array MVarId) := do
   let it   := its.get! sIdx
   let ctor := it.ctors.get! ctorIdx
   let (ctorArgs, mVar) ← introErasedCtorArgs its mVar ctor.type
@@ -267,7 +268,12 @@ def totalityInnerTac (hIdx sIdx ctorIdx : Nat) (its : List InductiveType) (mVar 
         let (eqFVars, mVar) ← proveEqs mVar eqs ctorw
         withMVarContext mVar do
           let mVar ← casesEqs mVar eqFVars
-          return mVar
+          withMVarContext mVar do
+            let type ← getMVarType mVar
+            setGoals [mVar]
+            let (resPair, mVars) ← elabTermWithHoles (Unhygienic.run `(PSigma.mk ?_ ?_)) type "foo"
+            assignExprMVar mVar resPair
+            return mVars.toArray
 
 def totalityOuterTac (hIdx : Nat) (its : List InductiveType) : TacticM Unit := do
   let mainIT := its.get! hIdx
@@ -291,14 +297,12 @@ def totalityOuterTac (hIdx : Nat) (its : List InductiveType) : TacticM Unit := d
     let recApp := mkAppN recApp (#[mkFVar mainE] ++ (hArgs.map HeaderArg.toExpandedExprs).concat 
                                                  ++ #[mkFVar mainw])
     assignExprMVar mVar recApp
-    let mut i' := 0
-    let mut methodGoals := methodGoals.toArray
+    let mut methodGoalss : Array (Array MVarId) := #[]
     for i in [:methodss.size] do
       for j in [:methodss[i].size] do
-        methodGoals ← methodGoals.modifyM i' $ fun g => 
-          totalityInnerTac hIdx i j its g
-        i' := i' + 1
-    setGoals methodGoals.toList
+        let gs ← totalityInnerTac hIdx i j its $ methodGoals.get! methodGoalss.size
+        methodGoalss := methodGoalss.push gs
+    setGoals methodGoalss.concat.toList
 
 instance : Inhabited (Syntax.SepArray ",") := Inhabited.mk $ Syntax.SepArray.ofElems #[]
 

@@ -60,11 +60,6 @@ if n = 0 then return ([], f) else do
 
 open Tactic
 
-def solveAndSetGoals (val : Expr) (mids : List MVarId) : TacticM Unit := do
-  let (g, gs) ← getMainGoal
-  assignExprMVar g val
-  setGoals $ (← getGoals) ++ mids
-
 instance : Inhabited CasesSubgoal := Inhabited.mk $ CasesSubgoal.mk arbitrary ""
 
 def casesPSigma (mVar : MVarId) (fVar : FVarId) (fstName sndName : Name) :
