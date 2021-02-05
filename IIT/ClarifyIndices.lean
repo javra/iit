@@ -11,11 +11,8 @@ namespace Meta
 
 instance : Inhabited CasesSubgoal := Inhabited.mk $ CasesSubgoal.mk arbitrary ""
 
-def clarifyIndex (mVar : MVarId) (fVar : FVarId) (i : Nat := 0) : MetaM MVarId := -- should be MetaM (MVarId × FVarSubst)
+def clarifyIndex (mVar : MVarId) (fVar : FVarId) (i : Nat := 0) : MetaM MVarId :=
   withMVarContext mVar do
-    let lctx       ← getLCtx
-    let localInsts ← getLocalInstances
-    checkNotAssigned mVar `generalizeIndices
     let fvarDecl ← getLocalDecl fVar
     let type ← whnf fvarDecl.type
     let failEx := fun _ => throwTacticEx `clarifyIndices mVar "inductive type expected"
@@ -23,24 +20,25 @@ def clarifyIndex (mVar : MVarId) (fVar : FVarId) (i : Nat := 0) : MetaM MVarId :
       let I := args.get! (val.numParams + i)
       unless I.isFVar do return mVar --consider failing instead
       let IName := (← getLocalDecl I.fvarId!).userName
-      let IType ← inferType I
-      let r ← mkFreshExprMVar IType
+      let r ← mkFreshExprMVar $ ← inferType I
       let eq ← mkEq r I
       let (eqMVar, (eqFVar, bodyMVar), mVarVal) ← metaHave mVar "eq" eq
+      assignExprMVar mVar (← instantiateMVars mVarVal)
       withMVarContext eqMVar do
         let eqSubgoals ← cases eqMVar fVar
         unless eqSubgoals.size == 1 do throwTacticEx `clarifyIndices eqMVar "indices must determine constructor uniquely"
         let rhs := eqSubgoals[0].subst.apply I
-        let rhsType ← inferType rhs
-        let u       ← getLevel rhsType
-        let val := mkApp2 (mkConst `Eq.refl [u]) rhsType rhs
-        assignExprMVar r.mvarId! rhs
-        assignExprMVar eqSubgoals[0].mvarId val
-      assignExprMVar mVar (← instantiateMVars mVarVal)
+        let u       ← getLevel (← inferType rhs)
+        let val := mkApp2 (mkConst `rfl [u]) (← inferType rhs) rhs
+        withMVarContext eqSubgoals[0].mvarId do
+          assignExprMVar r.mvarId! rhs
+          assignExprMVar eqSubgoals[0].mvarId val
       withMVarContext bodyMVar do
-        return bodyMVar
+        let gs ← cases bodyMVar eqFVar
+        let mVar ← clear gs[0].mvarId $ Expr.fvarId! $ gs[0].subst.apply $ mkFVar eqFVar
+        return mVar
 
-def clarifyIndices (mVar : MVarId) (fVar : FVarId) : MetaM MVarId := -- should be MetaM (MVarId × FVarSubst)
+def clarifyIndices (mVar : MVarId) (fVar : FVarId) : MetaM MVarId :=
   withMVarContext mVar do
     let lctx       ← getLCtx
     let localInsts ← getLocalInstances
@@ -70,17 +68,15 @@ syntax (name := clarifyIndices) "clarifyIndices" (colGt ident)+ : tactic
 
 end Lean
 
-
-
 -- Example
 inductive Foo : (n : Nat) → Fin n → Prop
 | mk1 : Foo 5 0
 | mk2 : Foo 8 3
 
---set_option trace.Elab true
 def bar (x : Fin 5) (p : Foo 5 x) (A : Type) (a : Foo 5 0 → A) : A := by
   clarifyIndices p
-  cases eq
+  exact a p
+
 
 
 
