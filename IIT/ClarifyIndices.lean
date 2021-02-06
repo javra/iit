@@ -23,20 +23,22 @@ def clarifyIndex (mVar : MVarId) (fVar : FVarId) (i : Nat := 0) : MetaM MVarId :
       let r ← mkFreshExprMVar $ ← inferType I
       let eq ← mkEq r I
       let (eqMVar, (eqFVar, bodyMVar), mVarVal) ← metaHave mVar "eq" eq
-      assignExprMVar mVar (← instantiateMVars mVarVal)
-      withMVarContext eqMVar do
-        let eqSubgoals ← cases eqMVar fVar
-        unless eqSubgoals.size == 1 do throwTacticEx `clarifyIndices eqMVar "indices must determine constructor uniquely"
-        let rhs := eqSubgoals[0].subst.apply I
-        let u       ← getLevel (← inferType rhs)
-        let val := mkApp2 (mkConst `rfl [u]) (← inferType rhs) rhs
-        withMVarContext eqSubgoals[0].mvarId do
-          assignExprMVar r.mvarId! rhs
-          assignExprMVar eqSubgoals[0].mvarId val
-      withMVarContext bodyMVar do
-        let gs ← cases bodyMVar eqFVar
-        let mVar ← clear gs[0].mvarId $ Expr.fvarId! $ gs[0].subst.apply $ mkFVar eqFVar
-        return mVar
+      let eqSubgoals ← cases eqMVar fVar
+      unless eqSubgoals.size == 1 do throwTacticEx `clarifyIndices eqMVar "indices must determine constructor uniquely"
+      let eqsg ← eqSubgoals[0].mvarId
+      let rhs := eqSubgoals[0].subst.apply I
+      let u       ← getLevel (← inferType rhs)     
+      let val :=  mkApp2 (mkConst `rfl [u]) (← inferType rhs) rhs
+      assignExprMVar r.mvarId! (← instantiateMVars rhs)
+      assignExprMVar eqsg (← instantiateMVars val)
+      assignExprMVar mVar (← instantiateMVars $ mVarVal)
+      let gs ← cases bodyMVar eqFVar
+      let mVar' ← clear gs[0].mvarId $ Expr.fvarId! $ gs[0].subst.apply $ mkFVar eqFVar
+      withMVarContext mVar' do
+        let unassignedMVars ← getMVars $ mkMVar eqMVar
+        let unassignedMVarTypes : Array Expr ← unassignedMVars.mapM fun mid => getMVarType mid
+        --throwTacticEx `clarifyIndices mVar' unassignedMVarTypes
+        return mVar'
 
 def clarifyIndices (mVar : MVarId) (fVar : FVarId) : MetaM MVarId :=
   withMVarContext mVar do
@@ -73,6 +75,7 @@ inductive Foo : (n : Nat) → Fin n → Prop
 | mk1 : Foo 5 0
 | mk2 : Foo 8 3
 
+--set_option pp.all true
 def bar (x : Fin 5) (p : Foo 5 x) (A : Type) (a : Foo 5 0 → A) : A := by
   clarifyIndices p
   exact a p
