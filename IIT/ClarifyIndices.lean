@@ -10,42 +10,42 @@ namespace Meta
 
 instance : Inhabited CasesSubgoal := Inhabited.mk $ CasesSubgoal.mk arbitrary ""
 
-def Std.AssocList.toList : Std.AssocList α β → List (α × β)
-  | Std.AssocList.nil => []
-  | Std.AssocList.cons k v t => (k, v) :: toList t
-
 def clarifyIndex (mVar : MVarId) (fVar : FVarId) (i : Nat := 0) : MetaM (FVarSubst × MVarId) :=
   withMVarContext mVar do
     let fvarDecl ← getLocalDecl fVar
     let type ← whnf fvarDecl.type
+    let target ← getMVarType mVar
     let failEx := fun _ => throwTacticEx `clarifyIndices mVar "inductive type expected"
     type.withApp fun f args => matchConstInduct f failEx fun val _ => do
       let rhs := args.get! (val.numParams + i)
       unless rhs.isFVar do return (FVarSubst.empty, mVar) --consider failing instead
       let lhs ← mkFreshExprMVar $ ← inferType rhs
       let eqType ← mkEq lhs rhs
+      -- First cases run to determine the lhs of the equation
+      let eqSubgoals ← cases (← mkFreshExprMVar eqType).mvarId! fVar
+      let eqsg := eqSubgoals[0].mvarId
+      withMVarContext eqsg do assignExprMVar lhs.mvarId! $ eqSubgoals[0].subst.apply rhs
       let eqMVar ← mkFreshExprMVar eqType
-      let target ← getMVarType mVar
-      let f ← mkFreshExprMVar $ mkForall "eq" BinderInfo.default eqType target
-      let (eqFVar, bodyMVar) ← intro f.mvarId! "eq"
+      -- Second cases run to actually prove the equality
       let eqSubgoals ← cases eqMVar.mvarId! fVar
       if eqSubgoals.size == 0 then throwTacticEx `clarifyIndices eqMVar.mvarId! "tactic should now prove False and the target from it"
       unless eqSubgoals.size == 1 do throwTacticEx `clarifyIndices eqMVar.mvarId! "indices must determine constructor uniquely"
-      let eqsg ← eqSubgoals[0].mvarId
+      let eqsg := eqSubgoals[0].mvarId
       withMVarContext eqsg do
-        let rhs := eqSubgoals[0].subst.apply rhs
-        let u ← getLevel (← inferType rhs)     
-        let val :=  mkApp2 (mkConst `rfl [u]) (← inferType rhs) rhs
-        assignExprMVar eqsg (← instantiateMVars val)
-        assignExprMVar lhs.mvarId! (← instantiateMVars rhs)
-      assignExprMVar mVar (← instantiateMVars $ mkApp f eqMVar)
-      --throwTacticEx `clarifyIndices mVar $ List.toString $ (Std.AssocList.toList $ eqSubgoals[0].subst.map).map fun (f, m) => m
-      let eqCases ← cases bodyMVar eqFVar
-      unless eqCases.size == 1 do throwTacticEx `clarifyIndices bodyMVar "could not apply cases on resulting equality"
-      let mVar' ← eqCases[0].mvarId
-      withMVarContext mVar' do
-        let mVar' ← clear mVar' $ Expr.fvarId! $ eqCases[0].subst.apply $ mkFVar eqFVar
-        return (eqCases[0].subst, mVar')
+        let u ← getLevel (← inferType lhs)
+        assignExprMVar eqsg $ mkApp2 (mkConst `rfl [u]) (← inferType lhs) lhs
+      -- Intro the equality as an fVar
+      let fMVar ← mkFreshExprMVar $ mkForall "eq" BinderInfo.default eqType target
+      assignExprMVar mVar $ mkApp fMVar (← instantiateMVars eqMVar)
+      let (eqFVar, bodyMVar) ← intro fMVar.mvarId! "eq"
+      withMVarContext bodyMVar do
+        -- Apply cases on the equality
+        let eqCases ← cases bodyMVar eqFVar
+        unless eqCases.size == 1 do throwTacticEx `clarifyIndices bodyMVar "could not apply cases on resulting equality"
+        let mVar' ← eqCases[0].mvarId
+        withMVarContext mVar' do
+          let mVar' ← clear mVar' $ Expr.fvarId! $ eqCases[0].subst.apply $ mkFVar eqFVar
+          return (eqCases[0].subst, mVar')
 
 def clarifyIndices (mVar : MVarId) (fVar : FVarId) : MetaM MVarId :=
   withMVarContext mVar do
@@ -102,9 +102,10 @@ inductive Foo'' : (m n l : Nat) → Prop
 | mk1 : Foo'' 1 2 3
 | mk2 : Foo'' 4 5 6
 
-def bar'' (x y : Nat) (p : Foo'' x y 3) : Foo'' 1 2 3 := by
+def bar'' (x y : Nat) (p : Foo'' x y 3) (h : x < y) : Foo'' x 2 3 := by
   clarifyIndices p
   exact p
+
 
 
 
