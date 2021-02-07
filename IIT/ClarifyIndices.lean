@@ -10,6 +10,11 @@ namespace Meta
 
 instance : Inhabited CasesSubgoal := Inhabited.mk $ CasesSubgoal.mk arbitrary ""
 
+def substituteWithCasesOn (mVar : MVarId) (fVar : FVarId) (e : Expr) : MetaM Expr :=
+withMVarContext mVar do
+  let eqSubgoals ← cases (← mkFreshExprMVar $ mkConst `True).mvarId! fVar
+  return eqSubgoals[0].subst.apply e
+
 def clarifyIndex (mVar : MVarId) (fVar : FVarId) (i : Nat := 0) : MetaM (FVarSubst × MVarId) :=
   withMVarContext mVar do
     let fvarDecl ← getLocalDecl fVar
@@ -20,20 +25,16 @@ def clarifyIndex (mVar : MVarId) (fVar : FVarId) (i : Nat := 0) : MetaM (FVarSub
       let rhs := args.get! (val.numParams + i)
       unless rhs.isFVar do return (FVarSubst.empty, mVar) --consider failing instead
       let lhs ← mkFreshExprMVar $ ← inferType rhs
-      let eqType ← mkEq lhs rhs
       -- First cases run to determine the lhs of the equation
-      let eqSubgoals ← cases (← mkFreshExprMVar eqType).mvarId! fVar
-      let eqsg := eqSubgoals[0].mvarId
-      withMVarContext eqsg do assignExprMVar lhs.mvarId! $ eqSubgoals[0].subst.apply rhs
-      let eqMVar ← mkFreshExprMVar eqType
+      assignExprMVar lhs.mvarId! $ ← substituteWithCasesOn mVar fVar rhs
       -- Second cases run to actually prove the equality
+      let eqType ← mkEq lhs rhs
+      let eqMVar ← mkFreshExprMVar eqType
       let eqSubgoals ← cases eqMVar.mvarId! fVar
       if eqSubgoals.size == 0 then throwTacticEx `clarifyIndices eqMVar.mvarId! "tactic should now prove False and the target from it"
       unless eqSubgoals.size == 1 do throwTacticEx `clarifyIndices eqMVar.mvarId! "indices must determine constructor uniquely"
-      let eqsg := eqSubgoals[0].mvarId
-      withMVarContext eqsg do
-        let u ← getLevel (← inferType lhs)
-        assignExprMVar eqsg $ mkApp2 (mkConst `rfl [u]) (← inferType lhs) lhs
+      let u ← getLevel (← inferType lhs)
+      assignExprMVar eqSubgoals[0].mvarId $ mkApp2 (mkConst `rfl [u]) (← inferType lhs) lhs
       -- Intro the equality as an fVar
       let fMVar ← mkFreshExprMVar $ mkForall "eq" BinderInfo.default eqType target
       assignExprMVar mVar $ mkApp fMVar (← instantiateMVars eqMVar)
@@ -85,7 +86,6 @@ inductive Foo : (n : Nat) → Fin n → Prop
 | mk1 : Foo 5 0
 | mk2 : Foo 8 3
 
---set_option pp.all true
 def bar (x : Fin 5) (p : Foo 5 x) (A : Type) (a : Foo 5 0 → A) : A := by
   clarifyIndices p
   exact a p
