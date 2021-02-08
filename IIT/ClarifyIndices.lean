@@ -1,4 +1,5 @@
 import Lean
+import IIT.Util
 
 open Lean
 open Elab
@@ -8,12 +9,29 @@ namespace Lean
 
 namespace Meta
 
-instance : Inhabited CasesSubgoal := Inhabited.mk $ CasesSubgoal.mk arbitrary ""
+section 
+
+open Std.AssocList
+
+def fVarSubstBackwardGet? (s : Std.AssocList FVarId Expr) (e : Expr) : Option FVarId :=
+match s with
+| nil => none
+| cons k v tl => if v == e then some k
+                 else fVarSubstBackwardGet? tl e
+
+end
 
 def substituteWithCasesOn (mVar : MVarId) (fVar : FVarId) (e : Expr) : MetaM Expr :=
 withMVarContext mVar do
   let eqSubgoals ← cases (← mkFreshExprMVar $ mkConst `True).mvarId! fVar
-  return eqSubgoals[0].subst.apply e
+  withMVarContext mVar do
+    let substResult := eqSubgoals[0].subst.apply e
+    -- In case of a trivial substitution, look for a expression that is mapped _to_ e and return that one
+    if ← isDefEq substResult e then
+      match fVarSubstBackwardGet? eqSubgoals[0].subst.map e with
+      | some fVar' => return eqSubgoals[0].subst.apply $ mkFVar fVar'
+      | none       => return substResult
+    return substResult
 
 def clarifyIndexFalse (mVar : MVarId) (fVar : FVarId) (i : Nat) : MetaM Unit :=
 withMVarContext mVar do
@@ -95,7 +113,7 @@ syntax (name := clarifyIndices) "clarifyIndices" (colGt ident)+ : tactic
 
 end Lean
 
-/-
+
 -- Examples
 inductive Foo : (n : Nat) → Fin n → Prop
 | mk1 : Foo 5 0
@@ -127,4 +145,11 @@ def bar'' (x y : Nat) (p : Foo'' x y 3) (h : x < y) : Foo'' x 2 3 := by
 def bar''' (x y : Nat) (p : Foo'' 4 (x + 1) y) : Foo'' 4 (x + 1) 6 := by
   clarifyIndices p
   exact p
--/
+
+inductive Foo''' : (m n : Nat) → (b : Bool) → Prop
+| mk1 : (n : Nat) → Foo''' n n true
+| mk2 : Foo''' 0 1 false
+
+def bar4 (m n : Nat) (p : Foo''' m n true) : Foo''' m m true := by
+  clarifyIndices p
+  exact p
