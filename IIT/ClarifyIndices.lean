@@ -81,7 +81,7 @@ def clarifyIndex (mVar : MVarId) (fVar : FVarId) (i : Nat := 0) : MetaM (Option 
           let mVar' ← clear mVar' $ Expr.fvarId! $ eqCases[0].subst.apply $ mkFVar eqFVar
           return (eqCases[0].subst, mVar')
 
-def clarifyIndices (mVar : MVarId) (fVar : FVarId) : MetaM (Option $ FVarId × MVarId) :=
+def clarifyIndicesTac (mVar : MVarId) (fVar : FVarId) : MetaM (Option $ FVarSubst × MVarId) :=
   withMVarContext mVar do
     checkNotAssigned mVar `clarifyInstances
     let type ← whnf $ ← inferType $ mkFVar fVar
@@ -90,13 +90,13 @@ def clarifyIndices (mVar : MVarId) (fVar : FVarId) : MetaM (Option $ FVarId × M
       unless val.numIndices > 0 do throwTacticEx `clarifyIndices mVar "indexed inductive type expected"
       unless args.size == val.numIndices + val.numParams do throwTacticEx `clarifyIndices mVar "ill-formed inductive datatype"
       let mut mVar := mVar
-      let mut fVar := fVar
+      let mut subst := FVarSubst.empty
       for i in [:val.numIndices] do
         match ← clarifyIndex mVar fVar i with
-        | some  (subst, mVar') => mVar := mVar'
-                                  fVar := Expr.fvarId! $ subst.apply $ mkFVar fVar
-        | none                 => return none
-      return (fVar, mVar)
+        | some  (s, mVar') => mVar := mVar'
+                              subst := subst.append s
+        | none             => return none
+      return (subst, mVar)
 
 end Meta
 
@@ -106,7 +106,7 @@ syntax (name := clarifyIndices) "clarifyIndices" (colGt ident)+ : tactic
 @[tactic clarifyIndices] def elabClarifyIndices : Tactic
 | `(tactic|clarifyIndices $fVars*) => do
   forEachVar fVars fun mVar fVar => do
-  match ← Meta.clarifyIndices mVar fVar with
+  match ← Meta.clarifyIndicesTac mVar fVar with
   | some (_, mVar) => return mVar
   | none           => return mVar
 | _ => throwUnsupportedSyntax

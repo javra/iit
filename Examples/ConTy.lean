@@ -7,7 +7,7 @@ iit Con : Type where
 | ext : (Γ : Con) → (A : Ty Γ) → Con
 
 iit Ty : (Γ : Con) → Type where
-| U : (Δ : Con) → Ty Δ
+--| U : (Δ : Con) → Ty Δ
 | U' : Ty Con.nil
 --| pi : ∀ (Γ : Con) (A : Ty Γ) (B : Ty (Con.ext Γ A)), Ty Γ
 
@@ -25,7 +25,6 @@ noncomputable def Con_total' : Con.tot  := by
   apply Ty.U.m
   apply Ty.U.r
   assumption
-  clarifyIndices Γ.r
   apply Ty.U'.m
   cases Γ.r
   simp at *

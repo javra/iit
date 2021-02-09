@@ -168,7 +168,7 @@ match hdType with
   | some _ => let (sfVar, mVar) ← intro mVar n
               let (EfVar, wfVar, mVar) ← casesPSigma mVar sfVar (n ++ erasureSuffix) (n ++ wellfSuffix)
               let (fVars', mVar) ← introN mVar 2 [n ++ motiveSuffix, n ++ relationSuffix]
-              let ha := HeaderArg'.internal EfVar wfVar fVars'[0] fVars'[0]
+              let ha := HeaderArg'.internal EfVar wfVar fVars'[0] fVars'[1]
               introCasesHdArgs mVar b (has.push ha)
   | none   => let (fVar, mVar) ← intro mVar n
               introCasesHdArgs mVar b (has.push $ HeaderArg'.external fVar)
@@ -234,14 +234,21 @@ if i >= eqFVars.size then return (subst, mVar) else do
   withMVarContext mVar do
     casesEqs mVar (subst.append subst') eqFVars (i + 1)
 
-def totalityModelTac (hdArgs : Array HeaderArg') (subst : FVarSubst) (mVar : MVarId) : TacticM MVarId :=
+def totalityModelTac (hdArgs : Array HeaderArg') (subst : FVarSubst) (mVar : MVarId) :
+   TacticM (FVarSubst × MVarId) :=
 withMVarContext mVar do
   setGoals [mVar]
   let rFVars := HeaderArg'.toRelationArray hdArgs
   let mut mVar := mVar
+  let mut subst := subst
   for rFVar in rFVars do
-    throwTacticEx `totalityModelTac mVar $ subst.apply $ mkFVar rFVar
-  return mVar
+    let foo ← try (clarifyIndicesTac mVar (subst.get rFVar).fvarId!) catch _ => pure none
+    match foo with
+    | none => return (subst, mVar)
+    | some (s, mVar') => do
+      subst := subst.append s
+      mVar  := mVar'
+  return (subst, mVar)
 
 def totalityInnerTac (hIdx sIdx ctorIdx : Nat) (its : List InductiveType) (mVar : MVarId) :
   TacticM (Array MVarId) := do
@@ -267,7 +274,8 @@ def totalityInnerTac (hIdx sIdx ctorIdx : Nat) (its : List InductiveType) (mVar 
             setGoals [mVar]
             let (resPair, mVars) ← elabTermWithHoles (Unhygienic.run `(PSigma.mk ?_ ?_)) type "foo"
             assignExprMVar mVar resPair
-            let mmVar ← totalityModelTac hdArgs accSubst $ mVars.get! 0
+            setGoals [mVars.get! 0]
+            let (accSubst, mmVar) ← totalityModelTac hdArgs accSubst $ mVars.get! 0
             let rmVar := mVars.get! 1
             return #[mmVar, rmVar]
 
