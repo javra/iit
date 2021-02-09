@@ -58,6 +58,12 @@ if n = 0 then return ([], f) else do
   let (mid, f) ← appExprHole f
   return (mids.append [mid], f)
 
+def FVarSubst.append (s1 s2 : FVarSubst) : FVarSubst :=
+let f s k v :=
+  if s.contains k then (s.erase k).insert k $ s.apply v
+  else s.insert k v
+s1.map.foldl f s2
+
 open Tactic
 
 instance : Inhabited CasesSubgoal := Inhabited.mk $ CasesSubgoal.mk arbitrary ""
@@ -67,9 +73,9 @@ def casesPSigma (mVar : MVarId) (fVar : FVarId) (fstName sndName : Name) :
   let sgs ← cases mVar fVar #[[fstName, sndName]]
   return (sgs[0].fields[0].fvarId!, sgs[0].fields[1].fvarId!, sgs[0].mvarId)
 
-def casesNoFields (mVar : MVarId) (fVar : FVarId) : TacticM MVarId := do
+def casesNoFields (mVar : MVarId) (fVar : FVarId) : TacticM (FVarSubst × MVarId) := do
   let sgs ← cases mVar fVar #[[]]
-  return sgs[0].mvarId
+  return (sgs[0].subst, sgs[0].mvarId)
 
 partial def withLocalDeclDs {α} (names : Array Name) (vals : Array Expr) 
   (x : Array FVarId → MetaM α) (fVars : Array FVarId := #[]) : MetaM α :=

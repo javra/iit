@@ -218,7 +218,7 @@ if i >= eqs.size then return (eqFVars, mVar) else do
   let (eqMVar, (eqFVar, mVar'), mVarSolution) ← metaHave mVar "e''" eqs[i]
   assignExprMVar mVar mVarSolution
   withMVarContext eqMVar do
-    let eqMVar ← casesNoFields eqMVar witness
+    let (_, eqMVar) ← casesNoFields eqMVar witness
     withMVarContext eqMVar do
       let gs ← getGoals
       setGoals [eqMVar]
@@ -227,32 +227,27 @@ if i >= eqs.size then return (eqFVars, mVar) else do
   withMVarContext mVar' do
     proveEqs mVar' eqs witness (i + 1) $ eqFVars.push eqFVar
 
-partial def casesEqs (mVar : MVarId) (eqFVars : Array FVarId) (i : Nat := 0) : TacticM MVarId :=
-if i >= eqFVars.size then return mVar else do
-  let mVar ← casesNoFields mVar eqFVars[i]
+partial def casesEqs (mVar : MVarId) (subst : FVarSubst) (eqFVars : Array FVarId) (i : Nat := 0)
+  : TacticM (FVarSubst × MVarId) :=
+if i >= eqFVars.size then return (subst, mVar) else do
+  let (subst', mVar) ← casesNoFields mVar eqFVars[i]
   withMVarContext mVar do
-    casesEqs mVar eqFVars (i + 1)
+    casesEqs mVar (subst.append subst') eqFVars (i + 1)
 
-def totalityModelTac (hdArgs : Array HeaderArg') (mVar : MVarId) : TacticM MVarId :=
+def totalityModelTac (hdArgs : Array HeaderArg') (subst : FVarSubst) (mVar : MVarId) : TacticM MVarId :=
 withMVarContext mVar do
   setGoals [mVar]
   let rFVars := HeaderArg'.toRelationArray hdArgs
   let mut mVar := mVar
-  let x ← for hdArg in hdArgs do
-    match hdArg with
-    | HeaderArg'.internal _ _ _ r => do
-      throwTacticEx `totalityModelTac mVar $ mkFVar r
-      let clarifyRes ← clarifyIndices mVar r
-      match clarifyRes with
-      | some (fVar, mVar') => mVar := mVar'
-      | none               => mVar := mVar
-    | _ => mVar := mVar
+  for rFVar in rFVars do
+    throwTacticEx `totalityModelTac mVar $ subst.apply $ mkFVar rFVar
   return mVar
 
 def totalityInnerTac (hIdx sIdx ctorIdx : Nat) (its : List InductiveType) (mVar : MVarId) :
   TacticM (Array MVarId) := do
-  let it   := its.get! sIdx
-  let ctor := it.ctors.get! ctorIdx
+  let it       := its.get! sIdx
+  let ctor     := it.ctors.get! ctorIdx
+  let accSubst := FVarSubst.empty
   let (ctorArgs, mVar) ← introErasedCtorArgs its mVar ctor.type
   withMVarContext mVar do
     let (ctorIHs, mVar) ← introIHs its mVar ctor.type
@@ -266,13 +261,13 @@ def totalityInnerTac (hIdx sIdx ctorIdx : Nat) (its : List InductiveType) (mVar 
         let eqs ← mkEqs ctorIndices $ hdArgs.map HeaderArg'.toErasureOrExt
         let (eqFVars, mVar) ← proveEqs mVar eqs ctorw
         withMVarContext mVar do
-          let mVar ← casesEqs mVar eqFVars
+          let (accSubst, mVar) ← casesEqs mVar accSubst eqFVars
           withMVarContext mVar do
             let type ← getMVarType mVar
             setGoals [mVar]
             let (resPair, mVars) ← elabTermWithHoles (Unhygienic.run `(PSigma.mk ?_ ?_)) type "foo"
             assignExprMVar mVar resPair
-            let mmVar ← totalityModelTac hdArgs $ mVars.get! 0
+            let mmVar ← totalityModelTac hdArgs accSubst $ mVars.get! 0
             let rmVar := mVars.get! 1
             return #[mmVar, rmVar]
 
