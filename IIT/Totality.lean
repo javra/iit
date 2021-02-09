@@ -1,6 +1,7 @@
 /- Proves the totality of the eliminator relation -/
 
 import IIT.Relation
+import IIT.ClarifyIndices
 import Lean.Elab.Tactic
 
 open Lean
@@ -66,33 +67,8 @@ private partial def introMethods (mVar : MVarId) (ctorIdss : List (List Name)) (
   MetaM (Array (Array FVarId) × MVarId) :=
 if i >= ctorIdss.length then return (fVarss, mVar) else do
 let (fVars, mVar) ← introN mVar (ctorIdss.get! i).length ((ctorIdss.get! i).map fun n => n ++ "m")
-introMethods mVar ctorIdss (i + 1) (fVarss.push fVars)
-
-private partial def totalityRecMotiveAux_old (e : Expr) 
-  (wref rref : Expr) (mainE : Expr) : MetaM Expr := do
-match e with
-| forallE n t b _ => 
-  match headerAppIdx? its t with
-  | some j => mkForallM n e.binderInfo t fun sFVar => do
-                let se := mkFst sFVar
-                let sw := mkSnd sFVar
-                let m := mkApp (← methodTmS its methods motives t t) sFVar
-                mkForallM (n ++ motiveSuffix) BinderInfo.default m fun mFVar => do
-                  let r := mkAppN (← elimRelationCtorTmS its motives methods t t) #[sFVar, mFVar]
-                  mkForallM (n ++ relationSuffix) BinderInfo.default r fun rFVar => do
-                    let wref := mkApp wref se
-                    let rref := mkAppN rref #[sFVar, mFVar]
-                    totalityRecMotiveAux_old b wref rref mainE
-  | none   => mkForallM n e.binderInfo t fun extFVar => do
-                let wref := mkApp wref extFVar
-                let rref := mkApp rref extFVar
-                totalityRecMotiveAux_old b wref rref mainE
-| sort l _        => let w := mkApp wref mainE
-                     mkForallM "mainw" BinderInfo.default w fun mainw => do
-                       mkSigmaM $ mkApp rref $ ← mkPair mainE mainw
-| _ => e
-
-
+introMethods mVar ctorIdss (i + 1) (fVarss.push fVars
+)
 def foo (e : Expr) : MetaM Expr := do
 match e with
 | forallE n t b _ => let m ← mkPair t b
@@ -154,6 +130,13 @@ private def HeaderArg'.toErasureOrExt (ha : HeaderArg') : Expr :=
 match ha with
 | internal e _ _ _ => mkFVar e
 | external n       => mkFVar n
+
+private partial def HeaderArg'.toRelationArray (has : Array HeaderArg')
+  (i : Nat := 0) (fVars : Array FVarId := #[]) : Array FVarId :=
+if i >= has.size then return fVars else do
+  match has[i] with
+  | internal _ _ _ r => return toRelationArray has (i + 1) $ fVars.push r
+  | _                => return toRelationArray has (i + 1) fVars
 
 inductive CtorArg where
 | internal : FVarId → CtorArg
@@ -250,6 +233,22 @@ if i >= eqFVars.size then return mVar else do
   withMVarContext mVar do
     casesEqs mVar eqFVars (i + 1)
 
+def totalityModelTac (hdArgs : Array HeaderArg') (mVar : MVarId) : TacticM MVarId :=
+withMVarContext mVar do
+  setGoals [mVar]
+  let rFVars := HeaderArg'.toRelationArray hdArgs
+  let mut mVar := mVar
+  let x ← for hdArg in hdArgs do
+    match hdArg with
+    | HeaderArg'.internal _ _ _ r => do
+      throwTacticEx `totalityModelTac mVar $ mkFVar r
+      let clarifyRes ← clarifyIndices mVar r
+      match clarifyRes with
+      | some (fVar, mVar') => mVar := mVar'
+      | none               => mVar := mVar
+    | _ => mVar := mVar
+  return mVar
+
 def totalityInnerTac (hIdx sIdx ctorIdx : Nat) (its : List InductiveType) (mVar : MVarId) :
   TacticM (Array MVarId) := do
   let it   := its.get! sIdx
@@ -273,7 +272,9 @@ def totalityInnerTac (hIdx sIdx ctorIdx : Nat) (its : List InductiveType) (mVar 
             setGoals [mVar]
             let (resPair, mVars) ← elabTermWithHoles (Unhygienic.run `(PSigma.mk ?_ ?_)) type "foo"
             assignExprMVar mVar resPair
-            return mVars.toArray
+            let mmVar ← totalityModelTac hdArgs $ mVars.get! 0
+            let rmVar := mVars.get! 1
+            return #[mmVar, rmVar]
 
 def totalityOuterTac (hIdx : Nat) (its : List InductiveType) : TacticM Unit := do
   let mainIT := its.get! hIdx

@@ -25,8 +25,7 @@ noncomputable def Con_total' : Con.tot  := by
   apply Ty.U.m
   apply Ty.U.r
   assumption
-  have e' : Γ.m = Con.nil.m := by { cases Γ.r; rfl }
-  induction e'
+  clarifyIndices Γ.r
   apply Ty.U'.m
   cases Γ.r
   simp at *
@@ -44,8 +43,7 @@ noncomputable def Ty_total' : Ty.tot := by
   apply Ty.U.m
   apply Ty.U.r
   assumption
-  have e' : Γ.m = Con.nil.m := by { cases Γ.r; rfl }
-  induction e'
+  clarifyIndices Γ.r
   apply Ty.U'.m
   cases Γ.r
   simp at *

@@ -7,6 +7,7 @@ import IIT.Erasure
 import IIT.Wellformedness
 import IIT.Sigma
 import IIT.Relation
+import IIT.ClarifyIndices
 import IIT.Totality
 
 namespace IIT

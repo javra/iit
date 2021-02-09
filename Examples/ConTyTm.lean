@@ -21,18 +21,17 @@ noncomputable def Con_total' : Con.tot := by
   totalityOuter 0 [Con, Ty, Tm] [Con.nil] [Ty.U] [Tm.El]
   apply Con.nil.m
   apply Con.nil.r
+  simp at *
   apply Ty.U.m
   apply Ty.U.r
   assumption
-  have e : Con.nil.m = Γ.m := by { cases Γ.r; rfl }
-  induction e
-  have e : Ty.U.m _ = A.m := by { cases A.r; rfl }
-  induction e
+  /-clarifyIndices Γ.r
+  clarifyIndices A.r
   apply Tm.El.m
   cases A.r
   cases Γ.r
   simp at *
-  apply Tm.El.r Con.m Ty.m Tm.m Con.nil.m Ty.U.m Tm.El.m
+  apply Tm.El.r Con.m Ty.m Tm.m Con.nil.m Ty.U.m Tm.El.m-/
 
 noncomputable def Ty_total' : Ty.tot := by
   totalityOuter 1 [Con, Ty, Tm] [Con.nil] [Ty.U] [Tm.El]
@@ -41,10 +40,8 @@ noncomputable def Ty_total' : Ty.tot := by
   apply Ty.U.m
   apply Ty.U.r
   assumption
-  have e : Con.nil.m = Γ.m := by { cases Γ.r; rfl }
-  induction e
-  have e : Ty.U.m _ = A.m := by { cases A.r; rfl }
-  induction e
+  clarifyIndices Γ.r
+  clarifyIndices A.r
   apply Tm.El.m
   cases A.r
   cases Γ.r

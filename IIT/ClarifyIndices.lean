@@ -113,7 +113,7 @@ syntax (name := clarifyIndices) "clarifyIndices" (colGt ident)+ : tactic
 
 end Lean
 
-
+/-
 -- Examples
 inductive Foo : (n : Nat) → Fin n → Prop
 | mk1 : Foo 5 0
@@ -153,3 +153,4 @@ inductive Foo''' : (m n : Nat) → (b : Bool) → Prop
 def bar4 (m n : Nat) (p : Foo''' m n true) : Foo''' m m true := by
   clarifyIndices p
   exact p
+-/
