@@ -4,7 +4,7 @@ mutual
 
 iit Con : Type where
 | nil : Con
---| ext : (Γ : Con) → (A : Ty Γ) → Con
+| ext : (Γ : Con) → (A : Ty Γ) → Con
 
 iit Ty : (Γ : Con) → Type where
 | U : (Δ : Con) → Ty Δ
@@ -18,32 +18,39 @@ end
 open IIT
 
 noncomputable def Con_total' : Con.tot := by
-  totalityOuter 0 [Con, Ty, Tm] [Con.nil] [Ty.U] [Tm.El]
+  totalityOuter 0 [Con, Ty, Tm] [Con.nil, Con.ext] [Ty.U] [Tm.El]
   apply Con.nil.m
   apply Con.nil.r
+  apply Con.ext.m (Γ.m := (Γ.ih _).1) (A.m := (A.ih _ _ _ _).1)
+  repeat { cases ctorw; assumption }
   simp at *
+  apply (Γ.ih _).2
+  apply Con.ext.r (Γ.r := (Γ.ih _).2) (A.r := (A.ih _ _ _ _).2) -- this is sooo fragile!
   apply Ty.U.m
   apply Ty.U.r
   assumption
-  /-clarifyIndices Γ.r
-  clarifyIndices A.r
+  --clarifyIndices A.r
   apply Tm.El.m
   cases A.r
   cases Γ.r
   simp at *
-  apply Tm.El.r Con.m Ty.m Tm.m Con.nil.m Ty.U.m Tm.El.m-/
+  apply Tm.El.r
 
 noncomputable def Ty_total' : Ty.tot := by
-  totalityOuter 1 [Con, Ty, Tm] [Con.nil] [Ty.U] [Tm.El]
+  totalityOuter 1 [Con, Ty, Tm] [Con.nil, Con.ext] [Ty.U] [Tm.El]
   apply Con.nil.m
   apply Con.nil.r
+  apply Con.ext.m (Γ.m := (Γ.ih _).1) (A.m := (A.ih _ _ _ _).1)
+  repeat { cases ctorw; assumption }
+  simp at *
+  apply (Γ.ih _).2
+  apply Con.ext.r (Γ.r := (Γ.ih _).2) (A.r := (A.ih _ _ _ _).2) -- this is sooo fragile!
   apply Ty.U.m
   apply Ty.U.r
   assumption
-  clarifyIndices Γ.r
   clarifyIndices A.r
   apply Tm.El.m
   cases A.r
   cases Γ.r
   simp at *
-  apply Tm.El.r Con.m Ty.m Tm.m Con.nil.m Ty.U.m Tm.El.m
+  apply Tm.El.r

@@ -59,9 +59,7 @@ if n = 0 then return ([], f) else do
   return (mids.append [mid], f)
 
 def FVarSubst.append (s1 s2 : FVarSubst) : FVarSubst :=
-let f s k v :=
-  if s.contains k then (s.erase k).insert k $ s.apply v
-  else s.insert k v
+let f s k v := (s.erase k).insert k $ s.apply v
 s1.map.foldl f s2
 
 open Tactic

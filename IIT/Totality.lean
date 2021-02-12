@@ -2,6 +2,7 @@
 
 import IIT.Relation
 import IIT.ClarifyIndices
+import IIT.PropInversion
 import Lean.Elab.Tactic
 
 open Lean
@@ -230,7 +231,7 @@ if i >= eqs.size then return (eqFVars, mVar) else do
 partial def casesEqs (mVar : MVarId) (subst : FVarSubst) (eqFVars : Array FVarId) (i : Nat := 0)
   : TacticM (FVarSubst × MVarId) :=
 if i >= eqFVars.size then return (subst, mVar) else do
-  let (subst', mVar) ← casesNoFields mVar eqFVars[i]
+  let (subst', mVar) ← casesNoFields mVar (subst.get eqFVars[i]).fvarId!
   withMVarContext mVar do
     casesEqs mVar (subst.append subst') eqFVars (i + 1)
 

@@ -54,7 +54,7 @@ end Lean
 -- Examples
 inductive Foo : Nat → Nat → Prop
 | mk1 : Foo 5 3
-| mk2 : Foo 3 3 → Foo 9 8 → (n : Nat) → Foo 1 2
+| mk2 : Foo 9 8 → Foo 1 2
 
 def bar (n : Nat) (x : Foo 1 n) (A : Type) (p : Foo 9 8 → A) : A := by
   inversion x
