@@ -21,7 +21,7 @@ open Command
 
 -- The syntax looks exactly like the one of inductive types, without the presence of modifiers
 @[commandParser] def «iit» : Parser := 
-parser! "iit " >> declId >> declSig >> Lean.Parser.optional (OrElse.orElse ":=" "where")  >> many ctor
+leading_parser "iit " >> declId >> declSig >> Lean.Parser.optional (OrElse.orElse ":=" "where")  >> many ctor
 
 end Parser
 

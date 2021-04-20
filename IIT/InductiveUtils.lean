@@ -55,7 +55,7 @@ def getResultingUniverse : List InductiveType → TermElabM Level
     | Expr.sort u _ => pure u
     | _             => throwError "unexpected inductive type resulting type"
 
-def collectUsed (indTypes : List InductiveType) : StateRefT CollectFVars.State TermElabM Unit := do
+def collectUsed (indTypes : List InductiveType) : StateRefT CollectFVars.State MetaM Unit := do
   indTypes.forM fun indType => do
     Term.collectUsedFVars indType.type
     indType.ctors.forM fun ctor =>
@@ -151,15 +151,15 @@ def elabCtors (indFVar : Expr) (params : Array Expr) (r : ElabHeaderResult) : Te
         let type ← Term.elabTerm ctorType none
         let resultingType ← getResultingType type
         unless resultingType.getAppFn == indFVar do
-          throwError! "unexpected constructor resulting type{indentExpr resultingType}"
+          throwError "unexpected constructor resulting type{indentExpr resultingType}"
         unless (← isType resultingType) do
-          throwError! "unexpected constructor resulting type, type expected{indentExpr resultingType}"
+          throwError "unexpected constructor resulting type, type expected{indentExpr resultingType}"
         let args := resultingType.getAppArgs
         for i in [:params.size] do
           let param := params[i]
           let arg   := args[i]
           unless (← isDefEq param arg) do
-            throwError! "inductive datatype parameter mismatch{indentExpr arg}\nexpected{indentExpr param}"
+            throwError "inductive datatype parameter mismatch{indentExpr arg}\nexpected{indentExpr param}"
         pure type
     let type ← mkForallFVars ctorParams type
     let type ← mkForallFVars params type
@@ -205,8 +205,8 @@ def accLevelAtCtor : Level → Level → Nat → Array Level → TermElabM (Arra
   | Level.succ u _,   r, rOffset+1, us => accLevelAtCtor u r rOffset us
   | u,                r, rOffset,   us =>
     if rOffset == 0 && u == r then pure us
-    else if r.occurs u  then throwError! "failed to compute resulting universe level of inductive datatype, provide universe explicitly"
-    else if rOffset > 0 then throwError! "failed to compute resulting universe level of inductive datatype, provide universe explicitly"
+    else if r.occurs u  then throwError "failed to compute resulting universe level of inductive datatype, provide universe explicitly"
+    else if rOffset > 0 then throwError "failed to compute resulting universe level of inductive datatype, provide universe explicitly"
     else if us.contains u then pure us
     else pure (us.push u)
 
@@ -253,7 +253,7 @@ def updateResultingUniverse (numParams : Nat) (indTypes : List InductiveType) : 
   unless r.isParam do
     throwError "failed to compute resulting universe level of inductive datatype, provide universe explicitly"
   let us ← collectUniverses r rOffset numParams indTypes
-  trace[Elab.inductive]! "updateResultingUniverse us: {us}, r: {r}, rOffset: {rOffset}"
+  trace[Elab.inductive] "updateResultingUniverse us: {us}, r: {r}, rOffset: {rOffset}"
   let rNew := mkResultUniverse us rOffset
   let updateLevel (e : Expr) : Expr := e.replaceLevel fun u => if u == tmpIndParam then some rNew else none
   return indTypes.map fun indType =>

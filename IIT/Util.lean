@@ -68,11 +68,11 @@ instance : Inhabited CasesSubgoal := Inhabited.mk $ CasesSubgoal.mk arbitrary ""
 
 def casesPSigma (mVar : MVarId) (fVar : FVarId) (fstName sndName : Name) :
   MetaM (FVarId × FVarId × MVarId) := do
-  let sgs ← cases mVar fVar #[[fstName, sndName]]
+  let sgs ← cases mVar fVar --#[[fstName, sndName]] TODO names?
   return (sgs[0].fields[0].fvarId!, sgs[0].fields[1].fvarId!, sgs[0].mvarId)
 
 def casesNoFields (mVar : MVarId) (fVar : FVarId) : TacticM (FVarSubst × MVarId) := do
-  let sgs ← cases mVar fVar #[[]]
+  let sgs ← cases mVar fVar --#[[]]
   return (sgs[0].subst, sgs[0].mvarId)
 
 partial def withLocalDeclDs {α} (names : Array Name) (vals : Array Expr) 

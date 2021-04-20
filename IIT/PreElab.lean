@@ -23,8 +23,8 @@ namespace IIT
 partial def elabSingleHeader (view : InductiveView) : TermElabM ElabHeaderResult := do
   -- TODO check headers
   -- TODO check unsafe
-  withAutoBoundImplicitLocal
-      <| elabBinders view.binders.getArgs (catchAutoBoundImplicit := true) fun params => do
+  withAutoBoundImplicit--Local
+      <| elabBinders view.binders.getArgs fun params => do
       match view.type? with
       | none         => -- this whole clause is probably not needed
         let u ← Meta.mkFreshLevelMVar
@@ -34,13 +34,14 @@ partial def elabSingleHeader (view : InductiveView) : TermElabM ElabHeaderResult
                localInsts := (← getLocalInstances),
                params := params, type := type, view := view }
       | some typeStx =>
-        elabTypeWithAutoBoundImplicit typeStx fun type => do
-          unless (← isTypeFormerType type) do
-            throwErrorAt typeStx "invalid inductive type, resultant type is not a sort"
-          let params ← Term.addAutoBoundImplicits params
-          pure  { lctx := (← getLCtx),
-                  localInsts := (← getLocalInstances),
-                  params := params, type := type, view := view }
+        let type ← Term.elabType typeStx
+        unless (← isTypeFormerType type) do
+          throwErrorAt typeStx "invalid inductive type, resultant type is not a sort"
+        Term.synthesizeSyntheticMVarsNoPostponing
+        let params ← Term.addAutoBoundImplicits params
+        pure  { lctx := (← getLCtx),
+                localInsts := (← getLocalInstances),
+                params := params, type := type, view := view }
 
 structure PreElabHeaderResult extends ElabHeaderResult where
   fVar   : Expr
@@ -76,13 +77,13 @@ partial def withPreElabCtor {α} (view : InductiveView) (hr : PreElabHeaderResul
         let type ← Term.elabTerm ctorType none
         --throwError ctorType
         let resultingType ← getResultingType type
-        unless resultingType.getAppFn == hr.fVar do throwError! "unexpected constructor resulting type{indentExpr resultingType}"
-        unless (← isType resultingType) do throwError! "unexpected constructor resulting type, type expected"
+        unless resultingType.getAppFn == hr.fVar do throwError "unexpected constructor resulting type{indentExpr resultingType}"
+        unless (← isType resultingType) do throwError "unexpected constructor resulting type, type expected"
         let args := resultingType.getAppArgs
         for i in [:hr.params.size] do
           let param := hr.params[i]
           let arg   := args[i]
-          unless (← isDefEq param arg) do throwError! "inductive datatype parameter mismatch"
+          unless (← isDefEq param arg) do throwError "inductive datatype parameter mismatch"
         pure type
     let type ← mkForallFVars ctorParams type
     let type ← mkForallFVars hr.params type

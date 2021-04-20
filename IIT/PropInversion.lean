@@ -19,19 +19,21 @@ withMVarContext mVar do
   let trueMVar := truesgs[0].mvarId
   let fields   := truesgs[0].fields
   let fields ← withMVarContext trueMVar do
-    let fields   ← fields.mapM fun e => inferType e
-    fields.filterM fun e => do return (← getLevel e).isZero
+    let fields   ← fields.mapM fun fv => do
+       let name ← try (← getLocalDecl fv.fvarId!).userName catch _ => pure Name.anonymous
+       pure $ (← inferType fv, name)
+    fields.filterM fun (e, _) => do return (← getLevel e).isZero
   -- Prove fields
   let mut mVar       := mVar
   let mut fieldFVars := #[]
-  for e in fields do
+  for (e, name) in fields do
     let (fieldFVar, mVar') ← withMVarContext mVar do
       let fieldMVar ← mkFreshExprMVar e
       let fsgs ← cases fieldMVar.mvarId! fVar
       assumption fsgs[0].mvarId
-      let fMVar ← mkFreshExprMVar $ mkForall Name.anonymous BinderInfo.default e target
+      let fMVar ← mkFreshExprMVar $ mkForall name BinderInfo.default e target
       assignExprMVar mVar $ mkApp fMVar fieldMVar
-      intro fMVar.mvarId! Name.anonymous
+      intro fMVar.mvarId! name
     mVar       := mVar'
     fieldFVars := fieldFVars.push fieldFVar
   return (fieldFVars, mVar)
@@ -54,9 +56,9 @@ end Lean
 -- Examples
 inductive Foo : Nat → Nat → Prop
 | mk1 : Foo 5 3
-| mk2 : Foo 9 8 → Foo 1 2
+| mk2 : (y : Foo 9 8) → Foo 1 2
 
-def bar (n : Nat) (x : Foo 1 n) (A : Type) (p : Foo 9 8 → A) : A := by
+def bar (n : Nat) (x : Foo 1 n) (A : Type) (p : (y : Foo 9 8) → A) : A := by
   inversion x
   apply p
   assumption

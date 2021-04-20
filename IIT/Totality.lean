@@ -263,26 +263,27 @@ def totalityInnerTac (hIdx sIdx ctorIdx : Nat) (its : List InductiveType) (mVar 
     withMVarContext mVar do
       let (ctorw, mVar) ← intro mVar "ctorw"
       withMVarContext mVar do
-        let ctorIndices ← collectCtorIndices its ctor.type
-        let ctorIndices := ctorIndices.map fun ci =>
-          instantiateRev ci $ ctorArgs.map CtorArg.toExpr
-        let eqs ← mkEqs ctorIndices $ hdArgs.map HeaderArg'.toErasureOrExt
-        let (eqFVars, mVar) ← proveEqs mVar eqs ctorw
+        let (invs, mVar) ← Meta.inversion mVar ctorw
         withMVarContext mVar do
-          let (accSubst, mVar) ← casesEqs mVar accSubst eqFVars
+          let ctorIndices ← collectCtorIndices its ctor.type
+          let ctorIndices := ctorIndices.map fun ci => instantiateRev ci $ ctorArgs.map CtorArg.toExpr
+          let eqs ← mkEqs ctorIndices $ hdArgs.map HeaderArg'.toErasureOrExt
+          let (eqFVars, mVar) ← proveEqs mVar eqs ctorw
           withMVarContext mVar do
-            let type ← getMVarType mVar
-            setGoals [mVar]
-            let (resPair, mVars) ← elabTermWithHoles (Unhygienic.run `(PSigma.mk ?_ ?_)) type "foo"
-            assignExprMVar mVar resPair
-            setGoals [mVars.get! 0]
-            let (accSubst, mmVar) ← totalityModelTac hdArgs accSubst $ mVars.get! 0
-            let rmVar := mVars.get! 1
-            return #[mmVar, rmVar]
+            let (accSubst, mVar) ← casesEqs mVar accSubst eqFVars
+            withMVarContext mVar do
+              let type ← getMVarType mVar
+              setGoals [mVar]
+              let (resPair, mVars) ← elabTermWithHoles (Unhygienic.run `(PSigma.mk ?_ ?_)) type "foo"
+              assignExprMVar mVar resPair
+              setGoals [mVars.get! 0]
+              let (accSubst, mmVar) ← totalityModelTac hdArgs accSubst $ mVars.get! 0
+              let rmVar := mVars.get! 1
+              return #[mmVar, rmVar]
 
 def totalityOuterTac (hIdx : Nat) (its : List InductiveType) : TacticM Unit := do
   let mainIT := its.get! hIdx
-  let (mVar, _) ← getMainGoal
+  let mVar ← getMainGoal
   let hType ← inferType $ mkConst mainIT.name --TODO levels?
   let (motives, mVar) ← introN mVar its.length (its.map fun it => it.name ++ "m")
   let (methodss, mVar) ← introMethods mVar (its.map fun it => it.ctors.map fun ctor => ctor.name)
