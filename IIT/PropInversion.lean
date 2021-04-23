@@ -19,8 +19,8 @@ withMVarContext mVar do
   let trueMVar := truesgs[0].mvarId
   let fields   := truesgs[0].fields
   let fields ← withMVarContext trueMVar do
-    let fields   ← fields.mapM fun fv => do
-       let name ← try (← getLocalDecl fv.fvarId!).userName catch _ => pure Name.anonymous
+    let fields ← fields.mapM fun fv => do
+       let name := if fv.isFVar then (← getLocalDecl fv.fvarId!).userName else Name.anonymous
        pure $ (← inferType fv, name)
     fields.filterM fun (e, _) => do return (← getLevel e).isZero
   -- Prove fields
