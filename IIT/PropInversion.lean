@@ -20,6 +20,7 @@ withMVarContext mVar do
   let fields   := truesgs[0].fields
   let fields ← withMVarContext trueMVar do
     let fields ← fields.mapM fun fv => do
+       let fv ← whnf fv
        let name := if fv.isFVar then (← getLocalDecl fv.fvarId!).userName else Name.anonymous
        pure $ (← inferType fv, name)
     fields.filterM fun (e, _) => do return (← getLevel e).isZero
@@ -62,4 +63,8 @@ def bar (n : Nat) (x : Foo 1 n) (A : Type) (p : (y : Foo 9 8) → A) : A := by
   inversion x
   apply p
   assumption
+
+def baz (n : Nat) (x : Foo (2 - 1) n) (A : Type) (p : (y : Foo 9 8) → A) : A := by
+  skip
+  inversion x
 -/

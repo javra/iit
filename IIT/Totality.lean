@@ -263,10 +263,8 @@ def totalityInnerTac (hIdx sIdx ctorIdx : Nat) (its : List InductiveType) (mVar 
     withMVarContext mVar do
       let (ctorw, mVar) ← intro mVar "ctorw"
       withMVarContext mVar do
-        logInfo (← inferType $ mkFVar ctorw)
-        --let (invs, mVar) ← Meta.inversion mVar ctorw
-        return #[mVar]
-        /-withMVarContext mVar do
+        let (invs, mVar) ← Meta.inversion mVar ctorw
+        withMVarContext mVar do
           let ctorIndices ← collectCtorIndices its ctor.type
           let ctorIndices := ctorIndices.map fun ci => instantiateRev ci $ ctorArgs.map CtorArg.toExpr
           let eqs ← mkEqs ctorIndices $ hdArgs.map HeaderArg'.toErasureOrExt
@@ -281,7 +279,7 @@ def totalityInnerTac (hIdx sIdx ctorIdx : Nat) (its : List InductiveType) (mVar 
               setGoals [mVars.get! 0]
               let (accSubst, mmVar) ← totalityModelTac hdArgs accSubst $ mVars.get! 0
               let rmVar := mVars.get! 1
-              return #[mmVar, rmVar]-/
+              return #[mmVar, rmVar]
 
 def totalityOuterTac (hIdx : Nat) (its : List InductiveType) : TacticM Unit := do
   let mainIT := its.get! hIdx
