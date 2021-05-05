@@ -1,21 +1,5 @@
 import IIT
 
-set_option trace.Meta.Tactic.subst true
-set_option trace.Meta.Tactic.cases true
-set_option trace.Meta.Tactic true
-inductive Con : Type
-| nil : Con
-| foo : Con
-
-inductive Conw : Con → Prop
-| nilw : Conw Con.nil
-
-example (x : Conw Con.nil) : x = Conw.nilw := by
-  cases x
-  skip
-
-#exit
-
 mutual
 
 iit Con : Type where
@@ -29,21 +13,13 @@ iit Ty : (Γ : Con) → Type where
 
 end
 
-
 --set_option trace.Meta.Tactic true
 noncomputable def Con_total' : Con.tot  := by
-  totalityOuter 0 [Con, Ty] [Con.nil, Con.ext] [Ty.U, Ty.U']
-  have foo : ctorw = Con.nil.w := by
-    cases ctorw
-    clear Ty.U'.m
-    skip
   skip
-
-#reduce Con_total'
+  totalityOuter 0 [Con, Ty] [Con.nil, Con.ext] [Ty.U, Ty.U']
 
 
 #exit
-
 noncomputable def Ty_total' : Ty.tot := by
   totalityOuter 1 [Con, Ty] [Con.nil, Con.ext] [Ty.U, Ty.U']
   apply Con.nil.m
@@ -53,7 +29,6 @@ noncomputable def Ty_total' : Ty.tot := by
   simp at *
   apply (Γ.ih _).2
   apply Con.ext.r (Γ.r := (Γ.ih _).2) (A.r := (A.ih _ _ _ _).2) -- this is sooo fragile!
-  inversion ctorw
   apply Ty.U.m
   apply Ty.U.r
   assumption

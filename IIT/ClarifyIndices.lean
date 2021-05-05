@@ -33,7 +33,7 @@ withMVarContext mVar do
       | none       => return substResult
     return substResult
 
-def clarifyIndexFalse (mVar : MVarId) (fVar : FVarId) (i : Nat) : MetaM Unit :=
+def clarifyIndexFalse (mVar : MVarId) (fVar : FVarId) : MetaM Unit :=
 withMVarContext mVar do
   let falseMVar ← mkFreshExprMVar $ mkConst `False
   let eqSubgoals ← cases falseMVar.mvarId! fVar
@@ -48,11 +48,12 @@ withMVarContext mVar do
 
 def clarifyIndex (mVar : MVarId) (fVar : FVarId) (i : Nat := 0) : MetaM (Option $ FVarSubst × MVarId) :=
   withMVarContext mVar do
-    let type ← whnf $ ← inferType $ mkFVar fVar
+    let type ← inferType $ mkFVar fVar
     let target ← getMVarType mVar
     let failEx := fun _ => throwTacticEx `clarifyIndices mVar "inductive type expected"
     type.withApp fun f args => matchConstInduct f failEx fun val _ => do
-      let rhs := args.get! (val.numParams + i)
+      if val.numParams + i >= args.size then return none
+      let rhs ← args.get! (val.numParams + i)
       unless rhs.isFVar do return (FVarSubst.empty, mVar) --consider failing instead
       let lhs ← mkFreshExprMVar $ ← inferType rhs
       -- First cases run to determine the lhs of the equation
@@ -62,7 +63,7 @@ def clarifyIndex (mVar : MVarId) (fVar : FVarId) (i : Nat := 0) : MetaM (Option 
       let eqMVar ← mkFreshExprMVar eqType
       let eqSubgoals ← cases eqMVar.mvarId! fVar
       if eqSubgoals.size == 0 then
-        clarifyIndexFalse mVar fVar i
+        clarifyIndexFalse mVar fVar
         return none
       unless eqSubgoals.size == 1 do
         throwTacticEx `clarifyIndices eqMVar.mvarId! "indices must determine constructor uniquely"
@@ -78,13 +79,15 @@ def clarifyIndex (mVar : MVarId) (fVar : FVarId) (i : Nat := 0) : MetaM (Option 
         unless eqCases.size == 1 do throwTacticEx `clarifyIndices bodyMVar "could not apply cases on resulting equality"
         let mVar' ← eqCases[0].mvarId
         withMVarContext mVar' do
-          let mVar' ← clear mVar' $ Expr.fvarId! $ eqCases[0].subst.apply $ mkFVar eqFVar
+          let eqFVar := eqCases[0].subst.apply $ mkFVar eqFVar
+          --if i > 1 then throwTacticEx `clarifyIndices mVar' $ eqFVar
+          let mVar' ← if eqFVar.isFVar then clear mVar' eqFVar.fvarId! else mVar'
           return (eqCases[0].subst, mVar')
 
 def clarifyIndicesTac (mVar : MVarId) (fVar : FVarId) : MetaM (Option $ FVarSubst × MVarId) :=
   withMVarContext mVar do
     checkNotAssigned mVar `clarifyInstances
-    let type ← whnf $ ← inferType $ mkFVar fVar
+    let type ← inferType $ mkFVar fVar
     let failEx := fun _ => throwTacticEx `clarifyIndices mVar "inductive type expected"
     type.withApp fun f args => matchConstInduct f failEx fun val _ => do
       unless val.numIndices > 0 do throwTacticEx `clarifyIndices mVar "indexed inductive type expected"
@@ -92,7 +95,8 @@ def clarifyIndicesTac (mVar : MVarId) (fVar : FVarId) : MetaM (Option $ FVarSubs
       let mut mVar := mVar
       let mut subst := FVarSubst.empty
       for i in [:val.numIndices] do
-        match ← clarifyIndex mVar fVar i with
+        let fVar := subst.apply $ mkFVar fVar
+        match ← clarifyIndex mVar fVar.fvarId! i with
         | some  (s, mVar') => mVar := mVar'
                               subst := subst.append s
         | none             => return none
