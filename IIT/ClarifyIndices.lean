@@ -52,7 +52,7 @@ def clarifyIndex (mVar : MVarId) (fVar : FVarId) (i : Nat := 0) : MetaM (Option 
     let target ← getMVarType mVar
     let failEx := fun _ => throwTacticEx `clarifyIndices mVar "inductive type expected"
     type.withApp fun f args => matchConstInduct f failEx fun val _ => do
-      if val.numParams + i >= args.size then return none
+      unless val.numParams + i < args.size do throwTacticEx `clarifyIndices mVar "not enough indices"
       let rhs ← args.get! (val.numParams + i)
       unless rhs.isFVar do return (FVarSubst.empty, mVar) --consider failing instead
       let lhs ← mkFreshExprMVar $ ← inferType rhs
@@ -117,7 +117,7 @@ syntax (name := clarifyIndices) "clarifyIndices" (colGt ident)+ : tactic
 
 end Lean
 
-/-
+
 -- Examples
 inductive Foo : (n : Nat) → Fin n → Prop
 | mk1 : Foo 5 0
@@ -127,7 +127,7 @@ def bar (x : Fin 5) (p : Foo 5 x) (A : Type) (a : Foo 5 0 → A) : A := by
   clarifyIndices p
   exact a p
 
-def baz (x : Fin 6) (p : Foo 6 x) (A : Type) : A := by
+def baz (p : Foo 9 x) (A : Type) : A := by
   clarifyIndices p
 
 inductive Foo' : (m n : Nat) → Fin (m + n) → Prop
@@ -157,4 +157,4 @@ inductive Foo''' : (m n : Nat) → (b : Bool) → Prop
 def bar4 (m n : Nat) (p : Foo''' m n true) : Foo''' m m true := by
   clarifyIndices p
   exact p
--/
+
