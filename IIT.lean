@@ -59,7 +59,7 @@ def elabIIT (elems : Array Syntax) : CommandElabM Unit := do
     | _                     => false
   -- There should be only one `iit_termination` command
   if terminations.size > 1 then throwIllFormedSyntax
-  let termination := terminations[0]
+  let termination := terminations[0][1]
   let views ← elems.mapM inductiveSyntaxToView
   let view0 := views[0]
   runTermElabM view0.declName fun vars => do
@@ -91,6 +91,17 @@ def elabIIT (elems : Array Syntax) : CommandElabM Unit := do
           let mVar ← mkFreshExprSyntheticOpaqueMVar totType
           pure mVar.mvarId!
         TacticM.run' (Tactic.evalTacticSeq termination) ⟨totMVars.get! 0⟩ ⟨totMVars⟩
+        for i in [0:2] do
+          let mv ← instantiateMVars $ mkMVar $ totMVars.get! i
+          let decl := Declaration.defnDecl { name         := (pr.its.get! i).name ++ "tot",
+                                             levelParams  := [], -- TODO
+                                             value        := mv,
+                                             type         := totTypes.get! i,
+                                             hints        := arbitrary -- TODO
+                                             safety       := DefinitionSafety.safe }
+          addDecl decl
+
+
 
 end IITElab
 
