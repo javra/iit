@@ -23,6 +23,10 @@ open Command
 @[commandParser] def «iit» : Parser := 
 leading_parser "iit " >> declId >> declSig >> Lean.Parser.optional (OrElse.orElse ":=" "where")  >> many ctor
 
+-- The syntax for the totality proof opens a tactic environment
+@[commandParser] def «iit_termination» : Parser :=
+leading_parser:leadPrec "iit_termination " >> @Tactic.tacticSeq
+
 end Parser
 
 -- Elaborator
@@ -43,10 +47,14 @@ def declareInductiveTypes (views : Array InductiveView) (pr : PreElabResult) : T
   addDecl decl
   mkAuxConstructions (pr.its.map InductiveType.name)
   for view in views do
-        Term.applyAttributesAt view.declName view.modifiers.attrs AttributeApplicationTime.afterTypeChecking
+    Term.applyAttributesAt view.declName view.modifiers.attrs AttributeApplicationTime.afterTypeChecking
   return
 
 def elabIIT (elems : Array Syntax) : CommandElabM Unit := do
+  let ⟨terminations, elems⟩ := elems.partition fun stx =>
+    match stx with
+    | `(iit_termination $x) => true
+    | _                     => false
   let views ← elems.mapM inductiveSyntaxToView
   let view0 := views[0]
   runTermElabM view0.declName fun vars => do
@@ -90,7 +98,7 @@ open Lean
 private def isIITMutual (stx : Syntax) : Bool :=
   stx[1].getArgs.all fun elem =>
     let declKind := elem[0].getKind
-    declKind == `«iit»
+    (declKind == `«iit») || (declKind == `«iit_termination»)
 
 -- If all declarations in a mutual block are IITs, elab thwem,
 -- otherwise elab as before
