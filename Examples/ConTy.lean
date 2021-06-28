@@ -16,6 +16,7 @@ iit_termination
 
 end
 
+#exit
 noncomputable def Con_total' : Con.tot  := by
   totalityOuter 0 [Con, Ty] [Con.nil, Con.ext] [Ty.U, Ty.U', Ty.pi]
   apply Con.nil.m

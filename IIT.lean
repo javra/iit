@@ -1,6 +1,7 @@
 /- Prototype for an implementation of IITs -/
 import Lean.Parser
 import Lean.Elab
+import Lean.Elab.Tactic.Basic
 import IIT.InductiveUtils
 import IIT.PreElab
 import IIT.Erasure
@@ -40,6 +41,7 @@ open Lean.Elab
 open Lean
 open List
 open Meta
+open Tactic
 
 def declareInductiveTypes (views : Array InductiveView) (pr : PreElabResult) : TermElabM Unit := do
   let decl := mkInductiveDeclEs pr.levelParams pr.numParams pr.its pr.isUnsafe
@@ -55,6 +57,9 @@ def elabIIT (elems : Array Syntax) : CommandElabM Unit := do
     match stx with
     | `(iit_termination $x) => true
     | _                     => false
+  -- There should be only one `iit_termination` command
+  if terminations.size > 1 then throwIllFormedSyntax
+  let termination := terminations[0]
   let views ← elems.mapM inductiveSyntaxToView
   let view0 := views[0]
   runTermElabM view0.declName fun vars => do
@@ -78,8 +83,14 @@ def elabIIT (elems : Array Syntax) : CommandElabM Unit := do
         let rpr := { pr with its := rits, 
                              numParams := pr.numParams + motives.size + methods.concat.size }
         declareInductiveTypes views rpr
-        let totDecls ← totalityTypes pr.its ls motives methods    
-        totDecls.toArray.forM addDecl
+        -- Declare the totality statements as propositions
+        let totTypes ← totalityTypes pr.its ls motives methods    
+        --totDecls.toArray.forM addDecl
+        -- Solve them using the tactics provided in by the termination block
+        let totMVars ← totTypes.mapM fun totType => do
+          let mVar ← mkFreshExprSyntheticOpaqueMVar totType
+          pure mVar.mvarId!
+        TacticM.run' (Tactic.evalTacticSeq termination) ⟨totMVars.get! 0⟩ ⟨totMVars⟩
 
 end IITElab
 
