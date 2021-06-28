@@ -83,16 +83,23 @@ def elabIIT (elems : Array Syntax) : CommandElabM Unit := do
         let rpr := { pr with its := rits, 
                              numParams := pr.numParams + motives.size + methods.concat.size }
         declareInductiveTypes views rpr
-        -- Declare the totality statements as propositions
+        -- Calculate the types for totality lemmas
         let totTypes ← totalityTypes pr.its ls motives methods    
-        --totDecls.toArray.forM addDecl
         -- Solve them using the tactics provided in by the termination block
-        let totMVars ← totTypes.mapM fun totType => do
-          let mVar ← mkFreshExprSyntheticOpaqueMVar totType
-          pure mVar.mvarId!
+        let mut totMVars : List MVarId := []
+        let mut totVals : List Expr := []
+        for i in [0:pr.its.length] do
+          let totType := totTypes.get! i
+          let mVar ← mkFreshExprMVar totType
+          totVals := totVals.append [mVar]
+          -- Run a helper tactic on all of the totality goals
+          let ⟨_, s⟩ ← TacticM.run (totalityOuterTac i pr.its) ⟨mVar.mvarId!⟩ ⟨[mVar.mvarId!]⟩
+          totMVars := totMVars.append s.goals
+        -- Run remaining tactics to solve totality (this should in future be automated)
         TacticM.run' (Tactic.evalTacticSeq termination) ⟨totMVars.get! 0⟩ ⟨totMVars⟩
-        for i in [0:2] do
-          let mv ← instantiateMVars $ mkMVar $ totMVars.get! i
+        for i in [0:pr.its.length] do
+          let mv ← instantiateMVars $ totVals.get! i
+          -- Declar `Hd.tot` for each sort `Hd`
           let decl := Declaration.defnDecl { name         := (pr.its.get! i).name ++ "tot",
                                              levelParams  := [], -- TODO
                                              value        := mv,
