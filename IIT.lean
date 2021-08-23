@@ -10,6 +10,7 @@ import IIT.Sigma
 import IIT.Relation
 import IIT.ClarifyIndices
 import IIT.Totality
+import IIT.Recursor
 
 namespace IIT
 
@@ -93,13 +94,14 @@ def elabIIT (elems : Array Syntax) : CommandElabM Unit := do
           let mVar ← mkFreshExprMVar totType
           totVals := totVals.append [mVar]
           -- Run a helper tactic on all of the totality goals
+          -- TODO make this tactic stronger to actually _solve_ those goals!
           let ⟨_, s⟩ ← TacticM.run (totalityOuterTac i pr.its) ⟨mVar.mvarId!⟩ ⟨[mVar.mvarId!]⟩
           totMVars := totMVars.append s.goals
         -- Run remaining tactics to solve totality (this should in future be automated)
         TacticM.run' (Tactic.evalTacticSeq termination) ⟨totMVars.get! 0⟩ ⟨totMVars⟩
         for i in [0:pr.its.length] do
           let mv ← instantiateMVars $ totVals.get! i
-          -- Declar `Hd.tot` for each sort `Hd`
+          -- Declare `Hd.tot` for each sort `Hd`
           let decl := Declaration.defnDecl { name         := (pr.its.get! i).name ++ "tot",
                                              levelParams  := [], -- TODO
                                              value        := mv,
@@ -107,8 +109,8 @@ def elabIIT (elems : Array Syntax) : CommandElabM Unit := do
                                              hints        := arbitrary -- TODO
                                              safety       := DefinitionSafety.safe }
           addDecl decl
-
-
+        let recDecls ← recDecls pr.its ls motives methods
+        --recDecls.toArray.forM addDecl
 
 end IITElab
 

@@ -48,4 +48,38 @@ iit_termination
 
 end
 
-#check Ty.tot
+#exit
+noncomputable def Con.rec :
+(Conm : Con → Type) →
+  (Tym : {Γ : Con} → Conm Γ → Ty Γ → Type) →
+    (Connilm : Conm Con.nil) →
+      (Conextm : {Γ : Con} → (Γm : Conm Γ) → {A : Ty Γ} → Tym Γm A → Conm (Con.ext Γ A)) →
+        (TyUm : {Δ : Con} → (Δm : Conm Δ) → Tym Δm (Ty.U Δ)) →
+          (TyU'm : Tym Connilm Ty.U') →
+            (Typim :
+                {Γ : Con} →
+                  (Γm : Conm Γ) →
+                    {A : Ty Γ} →
+                      (Am : Tym Γm A) →
+                        {B : Ty (Con.ext Γ A)} → Tym (Conextm Γm Am) B → Tym Γm (Ty.pi Γ A B)) →
+              (Γ : Con) → Conm Γ := by
+  intros Con.m Ty.m Con.nil.m Con.ext.m Ty.U.m Ty.U'.m Ty.pi.m Γ
+  exact PSigma.fst $ Con.tot Con.m Ty.m Con.nil.m Con.ext.m Ty.U.m Ty.U'.m Ty.pi.m Γ
+
+noncomputable def Ty.rec :
+(Conm : Con → Type) →
+  (Tym : {Γ : Con} → Conm Γ → Ty Γ → Type) →
+    (Connilm : Conm Con.nil) →
+      (Conextm : {Γ : Con} → (Γm : Conm Γ) → {A : Ty Γ} → Tym Γm A → Conm (Con.ext Γ A)) →
+        (TyUm : {Δ : Con} → (Δm : Conm Δ) → Tym Δm (Ty.U Δ)) →
+          (TyU'm : Tym Connilm Ty.U') →
+            (Typim :
+                {Γ : Con} →
+                  (Γm : Conm Γ) →
+                    {A : Ty Γ} →
+                      (Am : Tym Γm A) →
+                        {B : Ty (Con.ext Γ A)} → Tym (Conextm Γm Am) B → Tym Γm (Ty.pi Γ A B)) →
+  (Γ : Con) → (A : Ty Γ) → Tym (Con.rec Conm Tym Connilm Conextm TyUm TyU'm Typim Γ) A := by
+  intros Con.m Ty.m Con.nil.m Con.ext.m Ty.U.m Ty.U'.m Ty.pi.m Γ A
+  have r := PSigma.snd $ Con.tot Con.m Ty.m Con.nil.m Con.ext.m Ty.U.m Ty.U'.m Ty.pi.m Γ
+  exact PSigma.fst $ Ty.tot Con.m Ty.m Con.nil.m Con.ext.m Ty.U.m Ty.U'.m Ty.pi.m Γ r A
