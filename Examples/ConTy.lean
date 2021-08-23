@@ -2,6 +2,7 @@ import IIT
 
 mutual
 
+set_option pp.all true
 iit Con : Type where
 | nil : Con
 | ext : (Γ : Con) → (A : Ty Γ) → Con
@@ -48,7 +49,7 @@ iit_termination
 
 end
 
-#exit
+
 noncomputable def Con.rec :
 (Conm : Con → Type) →
   (Tym : {Γ : Con} → Conm Γ → Ty Γ → Type) →
