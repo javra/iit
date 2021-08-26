@@ -13,7 +13,7 @@ iit Ty : (Γ : Con) → Type where
 | pi : ∀ (Γ : Con) (A : Ty Γ) (B : Ty (Con.ext Γ A)), Ty Γ
 
 iit_termination
-    apply Con.nil.m
+    repeat assumption
     apply Con.nil.r
     apply Con.ext.m (Γ.m := (Γ.ih _).1) (A.m := (A.ih _ _ (Γ.ih _).2 _).1)
     repeat assumption
@@ -49,7 +49,25 @@ iit_termination
 
 end
 
+section
+variable (Conm : Con → Type)
+  (Tym : {Γ : Con} → Conm Γ → Ty Γ → Type)
+  (Connilm : Conm Con.nil)
+  (Conextm : {Γ : Con} → (Γm : Conm Γ) → {A : Ty Γ} → Tym Γm A → Conm (Con.ext Γ A))
+  (TyUm : {Δ : Con} → (Δm : Conm Δ) → Tym Δm (Ty.U Δ))
+  (TyU'm : Tym Connilm Ty.U')
+  (Typim : {Γ : Con} →
+                  (Γm : Conm Γ) →
+                    {A : Ty Γ} →
+                      (Am : Tym Γm A) →
+                        {B : Ty (Con.ext Γ A)} → Tym (Conextm Γm Am) B → Tym Γm (Ty.pi Γ A B))
 
+#check (@Con.tot Conm Tym Connilm Conextm TyUm TyU'm Typim Con.nil).1
+
+example : Con.rec Conm Tym Connilm Conextm TyUm TyU'm Typim Con.nil = Connilm := rfl
+
+end
+#exit
 noncomputable def Con.rec :
 (Conm : Con → Type) →
   (Tym : {Γ : Con} → Conm Γ → Ty Γ → Type) →

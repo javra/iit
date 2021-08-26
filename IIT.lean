@@ -110,7 +110,7 @@ def elabIIT (elems : Array Syntax) : CommandElabM Unit := do
                                              safety       := DefinitionSafety.safe }
           addDecl decl
         let recDecls ← recDecls pr.its ls motives methods
-        --recDecls.toArray.forM addDecl
+        recDecls.toArray.forM addDecl
 
 end IITElab
 

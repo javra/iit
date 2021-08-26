@@ -60,26 +60,32 @@ def addTotIfHeader (n : Name) (l : List Level) : Expr :=
 if contains (collectHeaderNames its) n then mkConst (n ++ totalitySuffix) l
 else mkConst n l
 
-private partial def recVal_motiveRelRef (e : Expr) : MetaM Expr := do
+private partial def recVal_motiveRelRef (e etot : Expr) : MetaM Expr := do
 match e with
+| app f e _ => let e' ← etot.appArg! --need the _type_ of `e` instead
+               mkAppN (←recVal_motiveRelRef f etot.appFn!) #[e, mkFst e', mkSnd e']
 | const n l _ => let t := addTotIfHeader its n l
                  mkAppN t (motives ++ methods.concat)
 | _ => e
 
 -- Invariant: `recVal l e sref dref` should be of type `recType l e sref dref`.
-partial def recVal (l : Level) (e sref tref : Expr) : MetaM Expr := do
+partial def recVal (l : Level) (e etot sref tref : Expr) : MetaM Expr := do
 match e with
 | forallE n t b _ =>
   match headerAppIdx? its t with
   | some _ => let sref := mkApp (liftBVarsOne sref) (mkBVar 0)
-              let mrref ← recVal_motiveRelRef its motives methods t
+              let mrref ← recVal_motiveRelRef its motives methods t etot.bindingDomain!
+              let mrref := mkApp (liftBVarsOne mrref) (mkBVar 0)
               let tref := mkAppN (liftBVarsOne tref) #[mkBVar 0, mkFst mrref, mkSnd mrref]
+              -- need a version of `b` where bvars are replaced with calls to `*.tot ...`
+              let btot := (etot.bindingBody!).instantiate1 mrref
               mkLambda n e.binderInfo t $
-              ← recVal l b sref tref
+              ← recVal l b btot sref tref
   | none   => let sref := mkApp (liftBVarsOne sref) (mkBVar 0)
               let tref := mkApp (liftBVarsOne tref) (mkBVar 0)
+              let btot := etot.bindingBody!
               mkLambda n e.binderInfo t $
-              ← recVal l b sref tref
+              ← recVal l b btot sref tref
 | sort l _ => let tref := mkApp (liftBVarsOne tref) (mkBVar 0)
               mkLambda "s" BinderInfo.default sref $
               mkFst tref
@@ -90,7 +96,7 @@ if i >= its.length then rVals else do
 let name := (its.get! i).name
 let type := (its.get! i).type
 let tref := mkAppN (mkConst (name ++ "tot")) (motives ++ methods.concat)
-let recVal ← recVal its motives methods (ls.get! i) type (mkConst name) tref
+let recVal ← recVal its motives methods (ls.get! i) type type (mkConst name) tref
 let recVal ← mkLambdaFVars (motives ++ methods.concat) recVal
 recVals (i + 1) (rVals.append [recVal])
 
@@ -101,7 +107,7 @@ if i >= its.length then return recs else do
   let recVals ← recVals its ls motives methods
   let recType := recTypes.get! i
   let recVal := recVals.get! i
-  if i>0 then throwError "rec val is {indentExpr recVal}"
+  --if i>1 then throwError "rec val is {indentExpr recVal}"
   let decl := Declaration.defnDecl { name     := (its.get! i).name ++ recursorSuffix, 
                                      levelParams  := [], --TODO
                                      value    := recVal,
