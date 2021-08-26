@@ -1,6 +1,7 @@
 /- Builds the recursor -/
 
 import IIT.Relation
+import IIT.Totality
 
 open Lean
 open Elab
@@ -55,16 +56,56 @@ let recType ← recType its motives methods (ls.get! i) type (mkConst name) moti
 let recType ← mkForallFVars (motives ++ methods.concat) recType
 recTypes (i + 1) (rTypes.append [recType])
 
+def addTotIfHeader (n : Name) (l : List Level) : Expr :=
+if contains (collectHeaderNames its) n then mkConst (n ++ totalitySuffix) l
+else mkConst n l
+
+private partial def recVal_motiveRelRef (e : Expr) : MetaM Expr := do
+match e with
+| const n l _ => let t := addTotIfHeader its n l
+                 mkAppN t (motives ++ methods.concat)
+| _ => e
+
+-- Invariant: `recVal l e sref dref` should be of type `recType l e sref dref`.
+partial def recVal (l : Level) (e sref tref : Expr) : MetaM Expr := do
+match e with
+| forallE n t b _ =>
+  match headerAppIdx? its t with
+  | some _ => let sref := mkApp (liftBVarsOne sref) (mkBVar 0)
+              let mrref ← recVal_motiveRelRef its motives methods t
+              let tref := mkAppN (liftBVarsOne tref) #[mkBVar 0, mkFst mrref, mkSnd mrref]
+              mkLambda n e.binderInfo t $
+              ← recVal l b sref tref
+  | none   => let sref := mkApp (liftBVarsOne sref) (mkBVar 0)
+              let tref := mkApp (liftBVarsOne tref) (mkBVar 0)
+              mkLambda n e.binderInfo t $
+              ← recVal l b sref tref
+| sort l _ => let tref := mkApp (liftBVarsOne tref) (mkBVar 0)
+              mkLambda "s" BinderInfo.default sref $
+              mkFst tref
+| _ => e
+
+partial def recVals (i : Nat := 0) (rVals : List Expr := []) : MetaM $ List Expr :=
+if i >= its.length then rVals else do
+let name := (its.get! i).name
+let type := (its.get! i).type
+let tref := mkAppN (mkConst (name ++ "tot")) (motives ++ methods.concat)
+let recVal ← recVal its motives methods (ls.get! i) type (mkConst name) tref
+let recVal ← mkLambdaFVars (motives ++ methods.concat) recVal
+recVals (i + 1) (rVals.append [recVal])
+
 partial def recDecls (i : Nat := 0)
   (recs : List Declaration := []): TermElabM $ List Declaration :=
 if i >= its.length then return recs else do
   let recTypes ← recTypes its ls motives methods
+  let recVals ← recVals its ls motives methods
   let recType := recTypes.get! i
-  if i>1 then throwError "rec type is {indentExpr recType}"
+  let recVal := recVals.get! i
+  if i>0 then throwError "rec val is {indentExpr recVal}"
   let decl := Declaration.defnDecl { name     := (its.get! i).name ++ recursorSuffix, 
                                      levelParams  := [], --TODO
-                                     value    := mkConst "foo", -- TODO
-                                     type     := recType, -- TODO
+                                     value    := recVal,
+                                     type     := recType,
                                      hints    := arbitrary,
                                      safety   := DefinitionSafety.safe }
   recDecls (i + 1) (recs.append [decl])

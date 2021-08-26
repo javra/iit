@@ -102,7 +102,7 @@ def elabIIT (elems : Array Syntax) : CommandElabM Unit := do
         for i in [0:pr.its.length] do
           let mv ← instantiateMVars $ totVals.get! i
           -- Declare `Hd.tot` for each sort `Hd`
-          let decl := Declaration.defnDecl { name         := (pr.its.get! i).name ++ "tot",
+          let decl := Declaration.defnDecl { name         := (pr.its.get! i).name ++ totalitySuffix,
                                              levelParams  := [], -- TODO
                                              value        := mv,
                                              type         := totTypes.get! i,

@@ -15,6 +15,8 @@ open Tactic
 
 namespace IIT
 
+def totalitySuffix : Name := "tot"
+
 variable (its : List InductiveType) (ls : List Level)
   (motives : Array Expr) (methods : Array (Array Expr))
 
