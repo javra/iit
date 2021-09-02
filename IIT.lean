@@ -59,7 +59,7 @@ def elabIIT (elems : Array Syntax) : CommandElabM Unit := do
     | `(iit_termination $x) => true
     | _                     => false
   -- There should be only one `iit_termination` command
-  if terminations.size > 1 then throwIllFormedSyntax
+  unless (terminations.size = 1) do throwError "Need to supply exactly one `iit_termination` command."
   let termination := terminations[0][1]
   let views ← elems.mapM inductiveSyntaxToView
   let view0 := views[0]
