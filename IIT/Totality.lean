@@ -15,6 +15,8 @@ open Tactic
 
 namespace IIT
 
+def totalitySuffix : Name := "tot"
+
 variable (its : List InductiveType) (ls : List Level)
   (motives : Array Expr) (methods : Array (Array Expr))
 
@@ -44,21 +46,14 @@ match e with
                mkSigma l (mkApp dref $ mkBVar 0) (mkApp rref $ mkBVar 0)
 | _ => e
 
-partial def totalityTypes (i : Nat := 0) (decls : List Declaration := []) : MetaM $ List Declaration :=
-if i >= its.length then decls else do
+partial def totalityTypes (i : Nat := 0) (totTypes : List Expr := []) : MetaM $ List Expr :=
+if i >= its.length then totTypes else do
 let name := (its.get! i).name
 let type := (its.get! i).type
 let rref := mkAppN (mkConst $ name ++ relationSuffix) (motives ++ methods.concat)
 let tot ← totalityType its motives methods (ls.get! i) type (mkConst name) motives[i] rref --TODO level
 let tot ← mkForallFVars (motives ++ methods.concat) tot
-let type ← inferType tot
-let decl := Declaration.defnDecl { name     := name ++ "tot",
-                                   levelParams  := [], -- TODO
-                                   value    := tot,
-                                   type     := type,
-                                   hints    := arbitrary -- TODO
-                                   safety   := DefinitionSafety.safe }
-totalityTypes (i + 1) (decls.append [decl])
+totalityTypes (i + 1) (totTypes.append [tot])
 
 open Lean.Parser
 open Lean.Elab.Command

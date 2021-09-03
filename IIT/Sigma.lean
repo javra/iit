@@ -52,24 +52,24 @@ match e with
 
 partial def sigmaDecls (i : Nat := 0) (hDecls ctorDecls : List Declaration := []) :
  TermElabM $ List Declaration :=
-if i >= its.length then return hDecls ++ ctorDecls else
-do let hr ← sigmaHeader its eits wits i
-   let it := its.get! i
-   let type := it.type
-   let ctors ← it.ctors.mapM fun ctor => do
-     let sctor ← sigmaCtor its ctor.name ctor.type
-     return Declaration.defnDecl { name := ctor.name,
-                                   levelParams := [], --TODO
-                                   value := sctor,
-                                   type := ctor.type,
-                                   hints := ReducibilityHints.regular 0,
-                                   safety := DefinitionSafety.safe }
-   let decl := Declaration.defnDecl { name     := (its.get! i).name, 
-                                      levelParams  := [], --TODO
-                                      value    := hr
-                                      type     := type,
-                                      hints    := arbitrary,
-                                      safety   := DefinitionSafety.safe };
-    sigmaDecls (i + 1) (hDecls ++ [decl]) (ctorDecls ++ ctors)
+if i >= its.length then return hDecls ++ ctorDecls else do
+  let hr ← sigmaHeader its eits wits i
+  let it := its.get! i
+  let type := it.type
+  let ctors ← it.ctors.mapM fun ctor => do
+    let sctor ← sigmaCtor its ctor.name ctor.type
+    return Declaration.defnDecl { name := ctor.name,
+                                  levelParams := [], --TODO
+                                  value := sctor,
+                                  type := ctor.type,
+                                  hints := ReducibilityHints.regular 0,
+                                  safety := DefinitionSafety.safe }
+  let decl := Declaration.defnDecl { name     := (its.get! i).name, 
+                                     levelParams  := [], --TODO
+                                     value    := hr
+                                     type     := type,
+                                     hints    := arbitrary,
+                                     safety   := DefinitionSafety.safe }
+  sigmaDecls (i + 1) (hDecls ++ [decl]) (ctorDecls ++ ctors)
 
 end IIT
