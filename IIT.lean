@@ -83,9 +83,12 @@ def elabIIT (elems : Array Syntax) : CommandElabM Unit := do
         let rits ← elimRelation motives methods pr.its
         let rpr := { pr with its := rits, 
                              numParams := pr.numParams + motives.size + methods.concat.size }
+        let ctorss : List (Array Constructor) := rits.map fun rit => rit.ctors.toArray
+        let ctors : Array Constructor := ctorss.toArray.concat
+        logInfo $ ctors.map fun ctor => ctor.type
         declareInductiveTypes views rpr
         -- Calculate the types for totality lemmas
-        let totTypes ← totalityTypes pr.its ls motives methods    
+        let totTypes ← totalityTypes pr.its ls motives methods
         -- Solve them using the tactics provided in by the termination block
         let mut totMVars : List MVarId := []
         let mut totVals : List Expr := []
@@ -97,6 +100,7 @@ def elabIIT (elems : Array Syntax) : CommandElabM Unit := do
           -- TODO make this tactic stronger to actually _solve_ those goals!
           let ⟨_, s⟩ ← TacticM.run (totalityOuterTac i pr.its) ⟨mVar.mvarId!⟩ ⟨[mVar.mvarId!]⟩
           totMVars := totMVars.append s.goals
+          --totMVars := totMVars.append [mVar.mvarId!] --DEBUG
         -- Run remaining tactics to solve totality (this should in future be automated)
         TacticM.run' (Tactic.evalTacticSeq termination) ⟨totMVars.get! 0⟩ ⟨totMVars⟩
         for i in [0:pr.its.length] do
@@ -109,6 +113,7 @@ def elabIIT (elems : Array Syntax) : CommandElabM Unit := do
                                              hints        := arbitrary -- TODO
                                              safety       := DefinitionSafety.safe }
           addDecl decl
+        -- Declare recursors
         let recDecls ← recDecls pr.its ls motives methods
         recDecls.toArray.forM addDecl
 
