@@ -25,7 +25,7 @@ match e with
               mkLambda n e.binderInfo t $ sigmaHeader i b (mkApp wref jfst)
   | none   => let wref := liftBVarsOne wref
               mkLambda n e.binderInfo t $ sigmaHeader i b (mkApp wref (mkBVar 0))
-| app f e _       => return mkApp (← sigmaHeader i f) e
+| app f e _       => return mkApp (sigmaHeader i f) e
 | _               => e
 
 def sigmaCtorTmS (e : Expr) (eref wref : Expr) : TermElabM Expr := do
