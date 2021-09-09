@@ -52,13 +52,16 @@ variable (methods : Array (Array Expr)) (motives : Array Expr)
 /- We invoke a dirty, dirty hack here:
    We hand on one version `em` of the expression where loose BVars refer to the model and one `e`
    where they refer to the syntax. -/
-def methodTmP (e em : Expr) : Expr :=
+def methodTmP (e em : Expr) : MetaM Expr := do
 match e with
 | app f e d => let fm := appFn! em
                let em := appArg! em
-               match ctorAppIdx? its em with
-               | some _ => mkApp (mkApp (methodTmP f fm) e) (methodTmP e em)
-               | none   => mkApp (methodTmP f fm) e
+               /-if em.isConstOf "EXT" then mkApp (← methodTmP f fm) e
+                else mkApp (mkApp (← methodTmP f fm) e) (← methodTmP e em)-/
+               let f_type := bindingDomain! $ ← inferType f
+               match headerAppIdx? its f_type with
+               | some _ => mkApp (mkApp (← methodTmP f fm) e) (← methodTmP e em)
+               | none   => mkApp (← methodTmP f fm) e
 | _           =>
   match ctorAppIdx? its em with
   | some (i, j) => methods[i][j]
@@ -72,7 +75,7 @@ match e with
   let f_type := bindingDomain! $ ← inferType f
   match headerAppIdx? its f_type with --TODO is this too shaky?
   | some _ => let methodFn ← methodTmS f fm
-              mkApp (mkApp methodFn e) (methodTmP its methods e em)
+              mkApp (mkApp methodFn e) (← methodTmP its methods e em)
   | none   => mkApp (← methodTmS f fm) e
 | const n l d =>
   match headerAppIdx? its e with
@@ -92,8 +95,9 @@ match e with
                 (mkApp (← methodTmS its methods motives t' t) $ mkBVar 0) $
                 (← method name b' b ref)
   | none   => let ref := mkApp (liftBVarsOne ref) $ mkBVar 0
-              mkForall n e.binderInfo t $
-              ← method name b (bindingBody! em) ref
+              --The placeholders for external arguments should never appear in the output
+              let b' := liftBVarsOne $ (bindingBody! em).instantiate1 $ mkConst "EXT"
+              mkForall n e.binderInfo t $ ← method name b b' ref
 | _ => mkApp (← methodTmS its methods motives e em) ref
 
 end
@@ -177,7 +181,8 @@ match e with
   let fm := appFn! em
   let em := appArg! em            
   let f_type := bindingDomain! $ ← inferType f
-  match headerAppIdx? its f_type with --TODO is this too shaky?
+  --bindingDomain! $ ← inferType f
+  match headerAppIdx? its f_type with --TODO check if `f_arg` is a ctor app
   | some _ => let t := mkApp (← elimRelationCtorTmS f fm) e
               mkApp t $ ← methodTmP its methods e em
   | none   => mkApp (← elimRelationCtorTmS f fm) e

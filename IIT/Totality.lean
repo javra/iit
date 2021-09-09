@@ -79,15 +79,15 @@ match e with
   | some j => (let m := mkApp (← methodTmS its methods motives (liftBVarsOne t) (liftBVarsOne $ bindingDomain! em)) (mkBVar 0)
                let r := mkAppN (← elimRelationCtorTmS its motives methods (liftBVarsTwo t) (liftBVarsTwo $ bindingDomain! er))
                           #[mkBVar 1, mkBVar 0]
-	       let wref := mkApp (liftBVarsThree wref) $ mkFst $ mkBVar 2
-	       let rref := mkAppN (liftBVarsThree rref) #[mkBVar 2, mkBVar 1]
-	       let b'   := liftBVarsTwo b
-	       let bm   := liftBVarsOne $ bindingBody! em
-	       let br   := liftBVarsOne $ bindingBody! er --????
+         let wref := mkApp (liftBVarsThree wref) $ mkFst $ mkBVar 2
+         let rref := mkAppN (liftBVarsThree rref) #[mkBVar 2, mkBVar 1]
+         let b'   := liftBVarsTwo b
+         let bm   := liftBVarsOne $ bindingBody! em
+         let br   := liftBVarsOne $ bindingBody! er --????
                return mkForall n e.binderInfo t $
                  mkForall (n ++ motiveSuffix) BinderInfo.default m $
-	         mkForall (n ++ relationSuffix) BinderInfo.default r $
-	         ← totalityRecMotiveAux b' wref rref mainE bm br)
+           mkForall (n ++ relationSuffix) BinderInfo.default r $
+            ← totalityRecMotiveAux b' wref rref mainE bm br)
   | none => let wref := mkApp (liftBVarsOne wref) (mkBVar 0)
             let rref := mkApp (liftBVarsOne wref) (mkBVar 0)
             let bm   := bindingBody! em
@@ -195,7 +195,7 @@ match ctorType with
 
 private def collectCtorIndicesTmS (e : Expr) (inds : Array Expr := #[]) : Array Expr := do
 match e with
-| app f e _   => let inds ← collectCtorIndicesTmS f inds
+| app f e _   => let inds := collectCtorIndicesTmS f inds
                  inds.push (wellfCtorTmP its e)
 | _           => inds
 
