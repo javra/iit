@@ -231,15 +231,14 @@ if i >= eqFVars.size then return (subst, mVar) else do
     casesEqs mVar (subst.append subst') eqFVars (i + 1)
 
 def totalityModelTac (hdArgs : Array HeaderArg') (subst : FVarSubst) (mVar : MVarId) :
-   TacticM (FVarSubst × MVarId) :=
+   MetaM (FVarSubst × MVarId) :=
 withMVarContext mVar do
-  setGoals [mVar]
   let rFVars := HeaderArg'.toRelationArray hdArgs
   let mut mVar := mVar
   let mut subst := subst
   for rFVar in rFVars do
-    let foo ← try (clarifyIndicesTac mVar (subst.get rFVar).fvarId!) catch _ => pure none
-    match foo with
+    let res ← try (clarifyIndicesTac mVar (subst.get rFVar).fvarId!) catch _ => pure none
+    match res with
     | none => return (subst, mVar)
     | some (s, mVar') => do
       subst := subst.append s
@@ -274,7 +273,8 @@ def totalityInnerTac (hIdx sIdx ctorIdx : Nat) (its : List InductiveType) (mVar 
               setGoals [mVars.get! 0]
               let (accSubst, mmVar) ← totalityModelTac hdArgs accSubst $ mVars.get! 0
               let rmVar := mVars.get! 1
-              return #[mmVar, rmVar]
+              let mmVars ← try apply mmVar methods[sIdx][ctorIdx] catch _ => [mmVar]
+              return mmVars.toArray ++ [rmVar]
 
 def totalityOuterTac (hIdx : Nat) (its : List InductiveType) : TacticM Unit := do
   let mainIT := its.get! hIdx
@@ -301,9 +301,11 @@ def totalityOuterTac (hIdx : Nat) (its : List InductiveType) : TacticM Unit := d
     let mut methodGoalss : Array (Array MVarId) := #[]
     for i in [:methodss.size] do
       for j in [:methodss[i].size] do
-        let gs ← totalityInnerTac hIdx i j its $ methodGoals.get! methodGoalss.size
+        let gs ← totalityInnerTac methodss hIdx i j its $ methodGoals.get! methodGoalss.size
         methodGoalss := methodGoalss.push gs
-    setGoals methodGoalss.concat.toList
+    let methodGoals := methodGoalss.concat
+    setGoals methodGoals.toList
+    evalTactic $ ← `(tactic|allGoals (repeat assumption))
 
 instance : Inhabited (Syntax.SepArray ",") := Inhabited.mk $ Syntax.SepArray.ofElems #[]
 

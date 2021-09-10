@@ -99,8 +99,8 @@ def elabIIT (elems : Array Syntax) : CommandElabM Unit := do
           -- TODO make this tactic stronger to actually _solve_ those goals!
           let newMVars ← Tactic.run mVar.mvarId! (totalityOuterTac i pr.its)
           totMVars := totMVars.append newMVars
-          --totMVars := totMVars.append [mVar.mvarId!] --DEBUG
         -- Run remaining tactics to solve totality (this should in future be automated)
+        unless totMVars.length > 0 do throwError "no tactics left to solve"
         let ⟨_, s⟩ ← (Tactic.evalTactic termination { main := totMVars.get! 0, elaborator := Name.anonymous }).run { goals := totMVars }
         unless s.goals.length = 0 do throwError "tactic block didn't solve all goals"
         for i in [0:pr.its.length] do
