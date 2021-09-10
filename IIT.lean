@@ -60,7 +60,7 @@ def elabIIT (elems : Array Syntax) : CommandElabM Unit := do
     | _                     => false
   -- There should be only one `iit_termination` command
   unless (terminations.size = 1) do throwError "Need to supply exactly one `iit_termination` command."
-  let termination := terminations[0][1]
+  let termination := terminations[0][1][0]
   let views ← elems.mapM inductiveSyntaxToView
   let view0 := views[0]
   runTermElabM view0.declName fun vars => do
@@ -85,7 +85,6 @@ def elabIIT (elems : Array Syntax) : CommandElabM Unit := do
                              numParams := pr.numParams + motives.size + methods.concat.size }
         let ctorss : List (Array Constructor) := rits.map fun rit => rit.ctors.toArray
         let ctors : Array Constructor := ctorss.toArray.concat
-        --logInfo $ ctors.map fun ctor => ctor.type
         declareInductiveTypes views rpr
         -- Calculate the types for totality lemmas
         let totTypes ← totalityTypes pr.its ls motives methods
@@ -98,11 +97,11 @@ def elabIIT (elems : Array Syntax) : CommandElabM Unit := do
           totVals := totVals.append [mVar]
           -- Run a helper tactic on all of the totality goals
           -- TODO make this tactic stronger to actually _solve_ those goals!
-          let s ← Tactic.run mVar.mvarId! (totalityOuterTac i pr.its)
-          totMVars := totMVars.append s
+          let newMVars ← Tactic.run mVar.mvarId! (totalityOuterTac i pr.its)
+          totMVars := totMVars.append newMVars
           --totMVars := totMVars.append [mVar.mvarId!] --DEBUG
         -- Run remaining tactics to solve totality (this should in future be automated)
-        let ⟨_, s⟩ ← (Tactic.evalTacticSeq termination { main := totMVars.get! 0, elaborator := Name.anonymous }).run { goals := totMVars }
+        let ⟨_, s⟩ ← (Tactic.evalTactic termination { main := totMVars.get! 0, elaborator := Name.anonymous }).run { goals := totMVars }
         unless s.goals.length = 0 do throwError "tactic block didn't solve all goals"
         for i in [0:pr.its.length] do
           let mv ← instantiateMVars $ totVals.get! i
@@ -117,8 +116,6 @@ def elabIIT (elems : Array Syntax) : CommandElabM Unit := do
         -- Declare recursors
         let recDecls ← recDecls pr.its ls motives methods
         recDecls.toArray.forM addDecl
-
-#check getUnsolvedGoals
 
 end IITElab
 

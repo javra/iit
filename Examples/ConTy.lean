@@ -2,7 +2,6 @@ import IIT
 
 mutual
 
-set_option pp.all true
 iit Con : Type where
 | nil : Con
 | ext : (Γ : Con) → (A : Ty Γ) → Con
