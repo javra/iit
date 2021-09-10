@@ -84,7 +84,7 @@ def elabIIT (elems : Array Syntax) : CommandElabM Unit := do
         let rpr := { pr with its := rits, 
                              numParams := pr.numParams + motives.size + methods.concat.size }
         let ctorss : List (Array Constructor) := rits.map fun rit => rit.ctors.toArray
-        let ctors : Array Constructor := ctorss.toArray.concat
+        --let ctors : Array Constructor := ctorss.toArray.concat
         declareInductiveTypes views rpr
         -- Calculate the types for totality lemmas
         let totTypes ← totalityTypes pr.its ls motives methods
@@ -98,9 +98,9 @@ def elabIIT (elems : Array Syntax) : CommandElabM Unit := do
           -- Run a helper tactic on all of the totality goals
           -- TODO make this tactic stronger to actually _solve_ those goals!
           let newMVars ← Tactic.run mVar.mvarId! (totalityOuterTac i pr.its)
+          --let newMVars := [mVar.mvarId!]
           totMVars := totMVars.append newMVars
         -- Run remaining tactics to solve totality (this should in future be automated)
-        unless totMVars.length > 0 do throwError "no tactics left to solve"
         let ⟨_, s⟩ ← (Tactic.evalTactic termination { main := totMVars.get! 0, elaborator := Name.anonymous }).run { goals := totMVars }
         unless s.goals.length = 0 do throwError "tactic block didn't solve all goals"
         for i in [0:pr.its.length] do
