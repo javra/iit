@@ -13,17 +13,7 @@ iit lt' : (x : A) → (y : A) → Type
 | mid_r : (x y : A) → (p : lt' x y) → lt' (A.mid x y p) y
 
 iit_termination
-  admit
-  admit
-  admit
-  admit
-  admit
-  admit
-  admit
-  admit
-  admit
-  admit
-  admit
-  admit
+  repeat admit
+  done
 
 end

@@ -11,17 +11,14 @@ iit Ty : (Γ : Con) → Type where
 | pi : ∀ (Γ : Con) (A : Ty Γ) (B : Ty (Con.ext Γ A)), Ty Γ
 
 iit Tm : (Γ : Con) → (A : Ty Γ) → Type where
-| El : (Γ : Con) → Tm Γ (Ty.U Γ)
+| El : (Δ : Con) → Tm Δ (Ty.U Δ)
 
 iit_termination
-  apply Con.nil.r
   apply Con.ext.m (Γ.m := (Γ.ih _).1) (A.m := (A.ih _ _ _ _).1)
   repeat assumption
   simp at *
   apply (Γ.ih _).2
   apply Con.ext.r (Γ.r := (Γ.ih _).2) (A.r := (A.ih _ _ _ _).2) -- this is sooo fragile!
-  apply Ty.U.r
-  repeat assumption
   apply Ty.pi.m (A.m := (A.ih _ _ _ _).1) (B.m := (B.ih _ _ _ _).1)
   repeat assumption
   apply Con.ext.r (Γ.m := Γ.m) (A.r := (A.ih _ _ _ _).2)
@@ -32,15 +29,12 @@ iit_termination
   apply Tm.El.m
   simp_all
   clarifyIndices A.r
-  apply Tm.El.r (Γ.m := Γ.m) (Γ.r := Γ.r)
-  apply Con.nil.r
+  apply Tm.El.r (Δ.m := Γ.m) (Δ.r := Γ.r)
   apply Con.ext.m (Γ.m := (Γ.ih _).1) (A.m := (A.ih _ _ _ _).1)
   repeat assumption
   simp at *
   apply (Γ.ih _).2
   apply Con.ext.r (Γ.r := (Γ.ih _).2) (A.r := (A.ih _ _ _ _).2) -- this is sooo fragile!
-  apply Ty.U.r
-  repeat assumption
   apply Ty.pi.m (A.m := (A.ih _ _ _ _).1) (B.m := (B.ih _ _ _ _).1)
   repeat assumption
   apply Con.ext.r (Γ.m := Γ.m) (A.r := (A.ih _ _ _ _).2)
@@ -51,15 +45,12 @@ iit_termination
   apply Tm.El.m
   simp_all
   clarifyIndices A.r
-  apply Tm.El.r (Γ.m := Γ.m) (Γ.r := Γ.r)
-  apply Con.nil.r
+  apply Tm.El.r (Δ.m := Γ.m) (Δ.r := Γ.r)
   apply Con.ext.m (Γ.m := (Γ.ih _).1) (A.m := (A.ih _ _ _ _).1)
-  repeat assumption
   simp at *
+  repeat assumption
   apply (Γ.ih _).2
   apply Con.ext.r (Γ.r := (Γ.ih _).2) (A.r := (A.ih _ _ _ _).2) -- this is sooo fragile!
-  apply Ty.U.r
-  repeat assumption
   apply Ty.pi.m (A.m := (A.ih _ _ _ _).1) (B.m := (B.ih _ _ _ _).1)
   repeat assumption
   apply Con.ext.r (Γ.m := Γ.m) (A.r := (A.ih _ _ _ _).2)
@@ -68,9 +59,13 @@ iit_termination
   repeat assumption
   clarifyIndices A.r
   apply Tm.El.m
-  simp_all
+  cases Γ with | mk Γ.E Γ.w => ?_
+  renameI A.w t.w
+  have : Δ.E = Γ.E := by
+    skip
   admit
-  
+
+
 end
 
-#check Tm.rec
+#check Tm.El.r

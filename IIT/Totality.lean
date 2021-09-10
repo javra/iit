@@ -273,8 +273,12 @@ def totalityInnerTac (hIdx sIdx ctorIdx : Nat) (its : List InductiveType) (mVar 
               setGoals [mVars.get! 0]
               let (accSubst, mmVar) ← totalityModelTac hdArgs accSubst $ mVars.get! 0
               let rmVar := mVars.get! 1
+              -- Try applying method trivially
               let mmVars ← try apply mmVar methods[sIdx][ctorIdx] catch _ => [mmVar]
-              return mmVars.toArray ++ [rmVar]
+              -- In the same manner, try applying relatedness trivially
+              let rmVars ← try apply rmVar (mkConst (ctor.name ++ relationSuffix))
+                           catch _ => [rmVar]
+              return mmVars.toArray ++ rmVars.toArray
 
 def totalityOuterTac (hIdx : Nat) (its : List InductiveType) : TacticM Unit := do
   let mainIT := its.get! hIdx
