@@ -11,7 +11,6 @@ import IIT.Relation
 import IIT.ClarifyIndices
 import IIT.Totality
 import IIT.Recursor
-import IIT.InfoviewBug
 
 namespace IIT
 
