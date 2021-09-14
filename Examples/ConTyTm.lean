@@ -23,10 +23,6 @@ iit_termination
   repeat assumption
   apply Ty.pi.r (A.r := (A.ih _ _ _ _).2) (B.r := (B.ih _ _ _ _).2)
   repeat assumption
-  clarifyIndices A.r
-  simp_all
-  clarifyIndices A.r
-  apply Tm.El.r (Δ.m := Γ.m) (Δ.r := Γ.r)
   apply Con.ext.m (Γ.m := (Γ.ih _).1) (A.m := (A.ih _ _ (Γ.ih _).2 _).1)
   repeat assumption
   apply Con.ext.r (Γ.r := (Γ.ih _).2) (A.r := (A.ih _ _ (Γ.ih _).2 _).2)
@@ -36,12 +32,7 @@ iit_termination
   repeat assumption
   apply Ty.pi.r (A.r := (A.ih _ _ _ _).2) (B.r := (B.ih _ _ _ _).2)
   repeat assumption
-  clarifyIndices A.r
-  simp_all
-  clarifyIndices A.r
-  apply Tm.El.r (Δ.m := Γ.m) (Δ.r := Γ.r)
   apply Con.ext.m (Γ.m := (Γ.ih _).1) (A.m := (A.ih _ _ _ _).1)
-  simp at *
   repeat assumption
   apply (Γ.ih _).2
   apply Con.ext.r (Γ.r := (Γ.ih _).2) (A.r := (A.ih _ _ _ _).2) -- this is sooo fragile!
@@ -51,9 +42,6 @@ iit_termination
   repeat assumption
   apply Ty.pi.r (A.r := (A.ih _ _ _ _).2) (B.r := (B.ih _ _ _ _).2)
   repeat assumption
-  clarifyIndices A.r
-  repeat assumption
-  apply Tm.El.r
-  repeat assumption
+
 
 end

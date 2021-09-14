@@ -257,13 +257,13 @@ withMVarContext mVar do
   let rFVars := HeaderArg'.toRelationArray hdArgs
   let mut mVar  := mVar
   let mut subst := subst
-  /-for rFVar in rFVars do
+  for rFVar in rFVars do
     let res ← try (clarifyIndicesTac mVar (subst.get rFVar).fvarId!) catch _ => pure none
     match res with
     | none            => ()
     | some (s, mVar') => do
       subst := subst.append s
-      mVar  := mVar'-/
+      mVar  := mVar'
   -- Try applying relatedness trivially
   let mVars ← try apply mVar (mkConst (ctor.name ++ relationSuffix)) catch _ => [mVar]
   return (subst, mVars)

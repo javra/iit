@@ -15,8 +15,6 @@ iit_termination
     apply Con.ext.m (Γ.m := (Γ.ih _).1) (A.m := (A.ih _ _ (Γ.ih _).2 _).1)
     repeat assumption
     apply Con.ext.r (Γ.r := (Γ.ih _).2) (A.r := (A.ih _ _ (Γ.ih _).2 _).2) -- this is sooo fragile!
-    clarifyIndices Γ.r
-    apply Ty.U'.r
     apply Ty.pi.m (A.m := (A.ih _ _ _ _).1) (B.m := (B.ih _ _ _ _).1)
     repeat assumption
     apply Con.ext.r (Γ.m := Γ.m) (A.r := (A.ih _ _ _ _).2)
@@ -26,8 +24,6 @@ iit_termination
     apply Con.ext.m (Γ.m := (Γ.ih _).1) (A.m := (A.ih _ _ (Γ.ih _).2 _).1)
     repeat assumption
     apply Con.ext.r (Γ.r := (Γ.ih _).2) (A.r := (A.ih _ _ _ _).2) -- this is sooo fragile!
-    clarifyIndices Γ.r
-    apply Ty.U'.r
     apply Ty.pi.m (A.m := (A.ih _ _ _ _).1) (B.m := (B.ih _ _ _ _).1)
     repeat assumption
     apply Con.ext.r (Γ.m := Γ.m) (A.r := (A.ih _ _ _ _).2)
