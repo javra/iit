@@ -60,12 +60,10 @@ iit_termination
   clarifyIndices A.r
   apply Tm.El.m
   cases Γ with | mk Γ.E Γ.w => ?_
-  renameI A.w t.w
-  have : Δ.E = Γ.E := by
-    skip
-  admit
-
+  renameI Δ.w' Δ.m Δ.r Δ.w U.w U.m A.r' A.w
+  have UmTyUm : U.m = Ty.U.m Δ.m := by cases A.r' <;> rfl
+  cases UmTyUm
+  exact Tm.El.r Con.m @Ty.m @Tm.m @Con.nil.m @Con.ext.m @Ty.U.m @Ty.pi.m @Tm.El.m
+    (PSigma.mk Δ.E Δ.w') Δ.r
 
 end
-
-#check Tm.El.r

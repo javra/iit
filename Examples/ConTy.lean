@@ -2,12 +2,11 @@ import IIT
 
 mutual
 
-set_option pp.analyze true
-iit Con : Type where
+iit Con : Type
 | nil : Con
 | ext : (Γ : Con) → (A : Ty Γ) → Con
 
-iit Ty : (Γ : Con) → Type where
+iit Ty : (Γ : Con) → Type
 | U : (Δ : Con) → Ty Δ
 | U' : Ty Con.nil
 | pi : ∀ (Γ : Con) (A : Ty Γ) (B : Ty (Con.ext Γ A)), Ty Γ
