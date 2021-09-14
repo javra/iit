@@ -23,7 +23,7 @@ open Command
 
 -- The syntax looks exactly like the one of inductive types, without the presence of modifiers
 @[commandParser] def «iit» : Parser := 
-leading_parser "iit " >> declId >> declSig >> Lean.Parser.optional (OrElse.orElse ":=" "where")  >> many ctor
+leading_parser "iit " >> declId >> declSig >> Lean.Parser.optional (":=" <|> "where")  >> many ctor
 
 -- The syntax for the totality proof opens a tactic environment
 @[commandParser] def «iit_termination» : Parser :=
@@ -102,7 +102,7 @@ def elabIIT (elems : Array Syntax) : CommandElabM Unit := do
           totMVars := totMVars.append newMVars
         -- Run remaining tactics to solve totality (this should in future be automated)
         let ⟨_, s⟩ ← (Tactic.evalTactic termination { main := totMVars.get! 0, elaborator := Name.anonymous }).run { goals := totMVars }
-        unless s.goals.length = 0 do throwError "tactic block didn't solve all goals"
+        unless s.goals.length = 0 do throwError "Tactic block does't solve all goals"
         for i in [0:pr.its.length] do
           let mv ← instantiateMVars $ totVals.get! i
           -- Declare `Hd.tot` for each sort `Hd`
