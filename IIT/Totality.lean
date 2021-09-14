@@ -230,8 +230,9 @@ if i >= eqFVars.size then return (subst, mVar) else do
   withMVarContext mVar do
     casesEqs mVar (subst.append subst') eqFVars (i + 1)
 
-def totalityModelTac (hdArgs : Array HeaderArg') (subst : FVarSubst) (mVar : MVarId) :
-   MetaM (FVarSubst × MVarId) :=
+def totalityModelTac (sIdx ctorIdx : Nat) (hdArgs : Array HeaderArg') 
+  (subst : FVarSubst) (mVar : MVarId) :
+   MetaM (FVarSubst × List MVarId) :=
 withMVarContext mVar do
   let rFVars := HeaderArg'.toRelationArray hdArgs
   let mut mVar := mVar
@@ -239,11 +240,33 @@ withMVarContext mVar do
   for rFVar in rFVars do
     let res ← try (clarifyIndicesTac mVar (subst.get rFVar).fvarId!) catch _ => pure none
     match res with
-    | none => return (subst, mVar)
+    | none            => ()
     | some (s, mVar') => do
       subst := subst.append s
       mVar  := mVar'
-  return (subst, mVar)
+  -- Try applying method trivially
+  let mVars ← try apply mVar methods[sIdx][ctorIdx] catch _ => [mVar]
+  return (subst, mVars)
+
+def totalityRelationTac (sIdx ctorIdx : Nat) (hdArgs : Array HeaderArg')
+  (subst : FVarSubst) (mVar : MVarId) :
+  MetaM (FVarSubst × List MVarId) :=
+withMVarContext mVar do
+  let it        := its.get! sIdx
+  let ctor      := it.ctors.get! ctorIdx
+  let rFVars := HeaderArg'.toRelationArray hdArgs
+  let mut mVar  := mVar
+  let mut subst := subst
+  /-for rFVar in rFVars do
+    let res ← try (clarifyIndicesTac mVar (subst.get rFVar).fvarId!) catch _ => pure none
+    match res with
+    | none            => ()
+    | some (s, mVar') => do
+      subst := subst.append s
+      mVar  := mVar'-/
+  -- Try applying relatedness trivially
+  let mVars ← try apply mVar (mkConst (ctor.name ++ relationSuffix)) catch _ => [mVar]
+  return (subst, mVars)
 
 def totalityInnerTac (hIdx sIdx ctorIdx : Nat) (its : List InductiveType) (mVar : MVarId) :
   TacticM (Array MVarId) := do
@@ -271,14 +294,10 @@ def totalityInnerTac (hIdx sIdx ctorIdx : Nat) (its : List InductiveType) (mVar 
               let (resPair, mVars) ← elabTermWithHoles (Unhygienic.run `(PSigma.mk ?_ ?_)) type "foo"
               assignExprMVar mVar resPair
               setGoals [mVars.get! 0]
-              let (accSubst, mmVar) ← totalityModelTac hdArgs accSubst $ mVars.get! 0
-              let rmVar := mVars.get! 1
-              -- Try applying method trivially
-              let mmVars ← try apply mmVar methods[sIdx][ctorIdx] catch _ => [mmVar]
-              -- In the same manner, try applying relatedness trivially
-              let rmVars ← try apply rmVar (mkConst (ctor.name ++ relationSuffix))
-                           catch _ => [rmVar]
-              return mmVars.toArray ++ rmVars.toArray
+              let (_, mmVars) ← totalityModelTac methods sIdx ctorIdx hdArgs accSubst $ mVars.get! 0
+              setGoals [mVars.get! 1]
+              let (_, rmVars) ← totalityRelationTac its sIdx ctorIdx hdArgs accSubst $ mVars.get! 1
+              return (mmVars.append rmVars).toArray
 
 def totalityOuterTac (hIdx : Nat) (its : List InductiveType) : TacticM Unit := do
   let mainIT := its.get! hIdx
