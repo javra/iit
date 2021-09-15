@@ -23,7 +23,7 @@ def methodSuffix : Name := "m"
 
 def motiveAux (fVars : Array Expr) (t tm : Expr) :=
 match t with
-| app f e d   => let fm := appFn! tm
+| app f e d   => let fm := appFn! tm -- TODO i suspect this needs tweeking for ext indices
                  let em := appArg! tm
                  mkApp (mkApp (motiveAux fVars f fm) e) em
 | const n l _ =>
@@ -39,7 +39,8 @@ match e with
   | some j => let b  := liftBVarsOne b
               let t' := liftBVarsOne t
               mkForall n BinderInfo.implicit t $
-              mkForall (n ++ "m") e.binderInfo (mkApp (motiveAux its fVars t' t) $ mkBVar 0) $
+              mkForall (n ++ motiveSuffix) e.binderInfo 
+                (mkApp (motiveAux its fVars t' t) $ mkBVar 0) $
               motive l fVars b (mkApp (liftBVarsTwo ref) (mkBVar 1))
   | none   => mkForall n e.binderInfo t $
               motive l fVars b (mkApp (liftBVarsOne ref) (mkBVar 0))
@@ -91,7 +92,7 @@ match e with
               let t' := liftBVarsOne t
               let b' := liftBVarsOne b
               mkForall n BinderInfo.implicit t $
-              mkForall (n ++ "m") e.binderInfo 
+              mkForall (n ++ "m") e.binderInfo
                 (mkApp (← methodTmS its methods motives t' t) $ mkBVar 0) $
                 (← method name b' b ref)
   | none   => let ref := mkApp (liftBVarsOne ref) $ mkBVar 0

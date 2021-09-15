@@ -230,10 +230,17 @@ if i >= eqFVars.size then return (subst, mVar) else do
   withMVarContext mVar do
     casesEqs mVar (subst.append subst') eqFVars (i + 1)
 
+def mkMethodApp (ctorType methodRef : Expr) : MetaM Expr :=
+match ctorType with
+| forallE n t b _ => mkAppM _ _
+| _ => methodRef
+
 def totalityModelTac (sIdx ctorIdx : Nat) (hdArgs : Array HeaderArg') 
   (subst : FVarSubst) (mVar : MVarId) :
    MetaM (FVarSubst × List MVarId) :=
 withMVarContext mVar do
+  let it        := its.get! sIdx
+  let ctor      := it.ctors.get! ctorIdx
   let rFVars := HeaderArg'.toRelationArray hdArgs
   let mut mVar := mVar
   let mut subst := subst
@@ -244,8 +251,7 @@ withMVarContext mVar do
     | some (s, mVar') => do
       subst := subst.append s
       mVar  := mVar'
-  -- Try applying method trivially
-  let mVars ← try apply mVar methods[sIdx][ctorIdx] catch _ => [mVar]
+  let mVars ← try apply mVar (← mkMethodApp ctor.type methods[sIdx][ctorIdx]) catch _ => [mVar]
   return (subst, mVars)
 
 def totalityRelationTac (sIdx ctorIdx : Nat) (hdArgs : Array HeaderArg')
@@ -294,7 +300,7 @@ def totalityInnerTac (hIdx sIdx ctorIdx : Nat) (its : List InductiveType) (mVar 
               let (resPair, mVars) ← elabTermWithHoles (Unhygienic.run `(PSigma.mk ?_ ?_)) type "foo"
               assignExprMVar mVar resPair
               setGoals [mVars.get! 0]
-              let (_, mmVars) ← totalityModelTac methods sIdx ctorIdx hdArgs accSubst $ mVars.get! 0
+              let (_, mmVars) ← totalityModelTac its methods sIdx ctorIdx hdArgs accSubst $ mVars.get! 0
               setGoals [mVars.get! 1]
               let (_, rmVars) ← totalityRelationTac its sIdx ctorIdx hdArgs accSubst $ mVars.get! 1
               return (mmVars.append rmVars).toArray
