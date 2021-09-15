@@ -84,8 +84,8 @@ match e with
          let b'   := liftBVarsTwo b
          let bm   := liftBVarsOne $ bindingBody! em
          let br   := liftBVarsOne $ bindingBody! er --????
-         return mkForall n e.binderInfo t $
-                mkForall (n ++ motiveSuffix) BinderInfo.default m $
+         return mkForall n BinderInfo.implicit t $
+                mkForall (n ++ motiveSuffix) BinderInfo.implicit m $
                 mkForall (n ++ relationSuffix) BinderInfo.default r $
                 ← totalityRecMotiveAux b' wref rref mainE bm br)
   | none => let wref := mkApp (liftBVarsOne wref) (mkBVar 0)
