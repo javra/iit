@@ -145,4 +145,6 @@ fun stx =>
 
 end MutualElab
 
+builtin_initialize Lean.registerTraceClass `IIT.Totality
+
 end IIT

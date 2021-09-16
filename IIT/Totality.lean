@@ -230,12 +230,38 @@ if i >= eqFVars.size then return (subst, mVar) else do
   withMVarContext mVar do
     casesEqs mVar (subst.append subst') eqFVars (i + 1)
 
-def mkMethodApp (ctorType methodRef : Expr) : MetaM Expr :=
+def appAssumption (f : Expr) : MetaM Expr := do
+  let f_type ← inferType f
+  match f_type with
+  | forallE n t b _ =>
+    let mVar ← mkFreshExprMVar t
+    assumption mVar.mvarId!
+    let mVar ← instantiateMVars mVar
+    return mkApp f mVar
+  | _ => throwError "appAssumption can only be applied to functions."
+
+def mkMethodAppArg (type : Expr) (ctorIHs : Array Expr) : MetaM Expr := do
+match type with
+| app f e _ => let e := mkSnd e
+               trace[Meta.appBuilder] ← mkMethodAppArg f ctorIHs
+               mkAppM' (← mkMethodAppArg f ctorIHs) #[e]
+| _         => ctorIHs[0] -- find the right IH here :(
+
+partial def mkMethodApp (ctorType methodRef : Expr) (ctorIHs : Array Expr): MetaM Expr := do
 match ctorType with
-| forallE n t b _ => mkAppM _ _
+| forallE n t b _ =>
+  match headerAppIdx? its t with
+  | some _ => let arg ← mkMethodAppArg t ctorIHs
+              let arg ← appAssumption arg
+              let b' ← instantiate1 b arg
+              let arg1 ← mkFst $ arg
+              let methodRef ← mkAppM' methodRef #[arg1]
+              return ← mkMethodApp b' methodRef ctorIHs[1:]
+  | none   => let b' ← mkMethodApp b methodRef ctorIHs
+              b' --mkAppM' b' #[_]
 | _ => methodRef
 
-def totalityModelTac (sIdx ctorIdx : Nat) (hdArgs : Array HeaderArg') 
+def totalityModelTac (sIdx ctorIdx : Nat) (hdArgs : Array HeaderArg') (ctorIHs : Array FVarId)
   (subst : FVarSubst) (mVar : MVarId) :
    MetaM (FVarSubst × List MVarId) :=
 withMVarContext mVar do
@@ -251,7 +277,10 @@ withMVarContext mVar do
     | some (s, mVar') => do
       subst := subst.append s
       mVar  := mVar'
-  let mVars ← try apply mVar (← mkMethodApp ctor.type methods[sIdx][ctorIdx]) catch _ => [mVar]
+  let ctorIHs := ctorIHs.map fun ih => subst.get ih
+  let mVars ← try apply mVar $ ← mkMethodApp its ctor.type methods[sIdx][ctorIdx] ctorIHs
+              catch _ => try apply mVar methods[sIdx][ctorIdx]
+                         catch _ => [mVar]
   return (subst, mVars)
 
 def totalityRelationTac (sIdx ctorIdx : Nat) (hdArgs : Array HeaderArg')
@@ -300,7 +329,7 @@ def totalityInnerTac (hIdx sIdx ctorIdx : Nat) (its : List InductiveType) (mVar 
               let (resPair, mVars) ← elabTermWithHoles (Unhygienic.run `(PSigma.mk ?_ ?_)) type "foo"
               assignExprMVar mVar resPair
               setGoals [mVars.get! 0]
-              let (_, mmVars) ← totalityModelTac its methods sIdx ctorIdx hdArgs accSubst $ mVars.get! 0
+              let (_, mmVars) ← totalityModelTac its methods sIdx ctorIdx hdArgs ctorIHs accSubst $ mVars.get! 0
               setGoals [mVars.get! 1]
               let (_, rmVars) ← totalityRelationTac its sIdx ctorIdx hdArgs accSubst $ mVars.get! 1
               return (mmVars.append rmVars).toArray
