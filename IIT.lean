@@ -23,7 +23,7 @@ open Command
 
 -- The syntax looks exactly like the one of inductive types, without the presence of modifiers
 @[commandParser] def «iit» : Parser := 
-leading_parser "iit " >> declId >> declSig >> Lean.Parser.optional (OrElse.orElse ":=" "where")  >> many ctor
+leading_parser "iit " >> declId >> declSig >> Lean.Parser.optional (":=" <|> "where")  >> many ctor
 
 -- The syntax for the totality proof opens a tactic environment
 @[commandParser] def «iit_termination» : Parser :=
@@ -60,7 +60,7 @@ def elabIIT (elems : Array Syntax) : CommandElabM Unit := do
     | _                     => false
   -- There should be only one `iit_termination` command
   unless (terminations.size = 1) do throwError "Need to supply exactly one `iit_termination` command."
-  let termination := terminations[0][1]
+  let termination := terminations[0][1][0]
   let views ← elems.mapM inductiveSyntaxToView
   let view0 := views[0]
   runTermElabM view0.declName fun vars => do
@@ -84,8 +84,7 @@ def elabIIT (elems : Array Syntax) : CommandElabM Unit := do
         let rpr := { pr with its := rits, 
                              numParams := pr.numParams + motives.size + methods.concat.size }
         let ctorss : List (Array Constructor) := rits.map fun rit => rit.ctors.toArray
-        let ctors : Array Constructor := ctorss.toArray.concat
-        --logInfo $ ctors.map fun ctor => ctor.type
+        --let ctors : Array Constructor := ctorss.toArray.concat
         declareInductiveTypes views rpr
         -- Calculate the types for totality lemmas
         let totTypes ← totalityTypes pr.its ls motives methods
@@ -98,12 +97,12 @@ def elabIIT (elems : Array Syntax) : CommandElabM Unit := do
           totVals := totVals.append [mVar]
           -- Run a helper tactic on all of the totality goals
           -- TODO make this tactic stronger to actually _solve_ those goals!
-          let s ← Tactic.run mVar.mvarId! (totalityOuterTac i pr.its)
-          totMVars := totMVars.append s
-          --totMVars := totMVars.append [mVar.mvarId!] --DEBUG
+          let newMVars ← Tactic.run mVar.mvarId! (totalityOuterTac i pr.its)
+          --let newMVars := [mVar.mvarId!]
+          totMVars := totMVars.append newMVars
         -- Run remaining tactics to solve totality (this should in future be automated)
-        let ⟨_, s⟩ ← (Tactic.evalTacticSeq termination { main := totMVars.get! 0, elaborator := Name.anonymous }).run { goals := totMVars }
-        unless s.goals.length = 0 do throwError "tactic block didn't solve all goals"
+        let ⟨_, s⟩ ← (Tactic.evalTactic termination { main := totMVars.get! 0, elaborator := Name.anonymous }).run { goals := totMVars }
+        unless s.goals.length = 0 do throwError "Tactic block does't solve all goals"
         for i in [0:pr.its.length] do
           let mv ← instantiateMVars $ totVals.get! i
           -- Declare `Hd.tot` for each sort `Hd`
@@ -117,8 +116,6 @@ def elabIIT (elems : Array Syntax) : CommandElabM Unit := do
         -- Declare recursors
         let recDecls ← recDecls pr.its ls motives methods
         recDecls.toArray.forM addDecl
-
-#check getUnsolvedGoals
 
 end IITElab
 

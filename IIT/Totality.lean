@@ -84,12 +84,12 @@ match e with
          let b'   := liftBVarsTwo b
          let bm   := liftBVarsOne $ bindingBody! em
          let br   := liftBVarsOne $ bindingBody! er --????
-               return mkForall n e.binderInfo t $
-                 mkForall (n ++ motiveSuffix) BinderInfo.default m $
-           mkForall (n ++ relationSuffix) BinderInfo.default r $
-            ← totalityRecMotiveAux b' wref rref mainE bm br)
+         return mkForall n BinderInfo.implicit t $
+                mkForall (n ++ motiveSuffix) BinderInfo.implicit m $
+                mkForall (n ++ relationSuffix) BinderInfo.default r $
+                ← totalityRecMotiveAux b' wref rref mainE bm br)
   | none => let wref := mkApp (liftBVarsOne wref) (mkBVar 0)
-            let rref := mkApp (liftBVarsOne wref) (mkBVar 0)
+            let rref := mkApp (liftBVarsOne rref) (mkBVar 0)
             let bm   := bindingBody! em
             let br   := bindingBody! er
             mkForall n e.binderInfo t $
@@ -230,21 +230,49 @@ if i >= eqFVars.size then return (subst, mVar) else do
   withMVarContext mVar do
     casesEqs mVar (subst.append subst') eqFVars (i + 1)
 
-def totalityModelTac (hdArgs : Array HeaderArg') (subst : FVarSubst) (mVar : MVarId) :
-   TacticM (FVarSubst × MVarId) :=
+def mkMethodApp (ctorType methodRef : Expr) : MetaM Expr :=
+match ctorType with
+| forallE n t b _ => mkAppM _ _
+| _ => methodRef
+
+def totalityModelTac (sIdx ctorIdx : Nat) (hdArgs : Array HeaderArg') 
+  (subst : FVarSubst) (mVar : MVarId) :
+   MetaM (FVarSubst × List MVarId) :=
 withMVarContext mVar do
-  setGoals [mVar]
+  let it        := its.get! sIdx
+  let ctor      := it.ctors.get! ctorIdx
   let rFVars := HeaderArg'.toRelationArray hdArgs
   let mut mVar := mVar
   let mut subst := subst
   for rFVar in rFVars do
-    let foo ← try (clarifyIndicesTac mVar (subst.get rFVar).fvarId!) catch _ => pure none
-    match foo with
-    | none => return (subst, mVar)
+    let res ← try (clarifyIndicesTac mVar (subst.get rFVar).fvarId!) catch _ => pure none
+    match res with
+    | none            => ()
     | some (s, mVar') => do
       subst := subst.append s
       mVar  := mVar'
-  return (subst, mVar)
+  let mVars ← try apply mVar (← mkMethodApp ctor.type methods[sIdx][ctorIdx]) catch _ => [mVar]
+  return (subst, mVars)
+
+def totalityRelationTac (sIdx ctorIdx : Nat) (hdArgs : Array HeaderArg')
+  (subst : FVarSubst) (mVar : MVarId) :
+  MetaM (FVarSubst × List MVarId) :=
+withMVarContext mVar do
+  let it        := its.get! sIdx
+  let ctor      := it.ctors.get! ctorIdx
+  let rFVars := HeaderArg'.toRelationArray hdArgs
+  let mut mVar  := mVar
+  let mut subst := subst
+  for rFVar in rFVars do
+    let res ← try (clarifyIndicesTac mVar (subst.get rFVar).fvarId!) catch _ => pure none
+    match res with
+    | none            => ()
+    | some (s, mVar') => do
+      subst := subst.append s
+      mVar  := mVar'
+  -- Try applying relatedness trivially
+  let mVars ← try apply mVar (mkConst (ctor.name ++ relationSuffix)) catch _ => [mVar]
+  return (subst, mVars)
 
 def totalityInnerTac (hIdx sIdx ctorIdx : Nat) (its : List InductiveType) (mVar : MVarId) :
   TacticM (Array MVarId) := do
@@ -272,9 +300,10 @@ def totalityInnerTac (hIdx sIdx ctorIdx : Nat) (its : List InductiveType) (mVar 
               let (resPair, mVars) ← elabTermWithHoles (Unhygienic.run `(PSigma.mk ?_ ?_)) type "foo"
               assignExprMVar mVar resPair
               setGoals [mVars.get! 0]
-              let (accSubst, mmVar) ← totalityModelTac hdArgs accSubst $ mVars.get! 0
-              let rmVar := mVars.get! 1
-              return #[mmVar, rmVar]
+              let (_, mmVars) ← totalityModelTac its methods sIdx ctorIdx hdArgs accSubst $ mVars.get! 0
+              setGoals [mVars.get! 1]
+              let (_, rmVars) ← totalityRelationTac its sIdx ctorIdx hdArgs accSubst $ mVars.get! 1
+              return (mmVars.append rmVars).toArray
 
 def totalityOuterTac (hIdx : Nat) (its : List InductiveType) : TacticM Unit := do
   let mainIT := its.get! hIdx
@@ -301,9 +330,11 @@ def totalityOuterTac (hIdx : Nat) (its : List InductiveType) : TacticM Unit := d
     let mut methodGoalss : Array (Array MVarId) := #[]
     for i in [:methodss.size] do
       for j in [:methodss[i].size] do
-        let gs ← totalityInnerTac hIdx i j its $ methodGoals.get! methodGoalss.size
+        let gs ← totalityInnerTac methodss hIdx i j its $ methodGoals.get! methodGoalss.size
         methodGoalss := methodGoalss.push gs
-    setGoals methodGoalss.concat.toList
+    let methodGoals := methodGoalss.concat
+    setGoals methodGoals.toList
+    evalTactic $ ← `(tactic|allGoals (repeat assumption))
 
 instance : Inhabited (Syntax.SepArray ",") := Inhabited.mk $ Syntax.SepArray.ofElems #[]
 
