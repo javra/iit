@@ -59,8 +59,6 @@ def elabIIT (elems : Array Syntax) : CommandElabM Unit := do
     | `(iit_termination $x) => true
     | _                     => false
   -- There should be only one `iit_termination` command
-  unless (terminations.size = 1) do throwError "Need to supply exactly one `iit_termination` command."
-  let termination := terminations[0][1][0]
   let views ← elems.mapM inductiveSyntaxToView
   let view0 := views[0]
   runTermElabM view0.declName fun vars => do
@@ -101,8 +99,12 @@ def elabIIT (elems : Array Syntax) : CommandElabM Unit := do
           --let newMVars := [mVar.mvarId!]
           totMVars := totMVars.append newMVars
         -- Run remaining tactics to solve totality (this should in future be automated)
-        let ⟨_, s⟩ ← (Tactic.evalTactic termination { main := totMVars.get! 0, elaborator := Name.anonymous }).run { goals := totMVars }
-        unless s.goals.length = 0 do throwError "Tactic block does't solve all goals"
+        if totMVars.length > 0 then
+            -- There should be only one `iit_termination` command
+          unless (terminations.size = 1) do throwError "Need to supply a `iit_termination` command to solve totality."
+          let termination := terminations[0][1][0]
+          let ⟨_, s⟩ ← (Tactic.evalTactic termination { main := totMVars.get! 0, elaborator := Name.anonymous }).run { goals := totMVars }
+          unless s.goals.length = 0 do throwError "Tactic block does't solve all goals"
         for i in [0:pr.its.length] do
           let mv ← instantiateMVars $ totVals.get! i
           -- Declare `Hd.tot` for each sort `Hd`

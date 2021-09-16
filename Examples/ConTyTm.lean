@@ -13,8 +13,5 @@ iit Ty : (Γ : Con) → Type where
 iit Tm : (Γ : Con) → (A : Ty Γ) → Type where
 | El : (Δ : Con) → Tm Δ (Ty.U Δ)
 
-iit_termination
-  skip
-
 end
 
