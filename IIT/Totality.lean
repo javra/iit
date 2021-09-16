@@ -243,9 +243,8 @@ def appAssumption (f : Expr) : MetaM Expr := do
 def mkMethodAppArg (type : Expr) (ctorIHs : Array Expr) : MetaM Expr := do
 match type with
 | app f e _ => let e := mkSnd e
-               trace[Meta.appBuilder] ← mkMethodAppArg f ctorIHs
                mkAppM' (← mkMethodAppArg f ctorIHs) #[e]
-| _         => ctorIHs[0] -- find the right IH here :(
+| _         => ctorIHs[0]
 
 partial def mkMethodApp (ctorType methodRef : Expr) (ctorIHs : Array Expr): MetaM Expr := do
 match ctorType with
@@ -283,7 +282,22 @@ withMVarContext mVar do
                          catch _ => [mVar]
   return (subst, mVars)
 
-def totalityRelationTac (sIdx ctorIdx : Nat) (hdArgs : Array HeaderArg')
+
+partial def mkRelationApp (ctorType relationRef : Expr) (ctorIHs : Array Expr): MetaM Expr := do
+match ctorType with
+| forallE n t b _ =>
+  match headerAppIdx? its t with
+  | some _ => let arg ← mkMethodAppArg t ctorIHs
+              let arg ← appAssumption arg
+              let b' ← instantiate1 b arg
+              let arg2 ← mkSnd $ arg
+              let methodRef ← mkAppM' relationRef #[arg2]
+              return ← mkRelationApp b' methodRef ctorIHs[1:]
+  | none   => let b' ← mkRelationApp b relationRef ctorIHs
+              b' --mkAppM' b' #[_]
+| _ => relationRef
+
+def totalityRelationTac (sIdx ctorIdx : Nat) (hdArgs : Array HeaderArg') (ctorIHs : Array FVarId)
   (subst : FVarSubst) (mVar : MVarId) :
   MetaM (FVarSubst × List MVarId) :=
 withMVarContext mVar do
@@ -300,7 +314,14 @@ withMVarContext mVar do
       subst := subst.append s
       mVar  := mVar'
   -- Try applying relatedness trivially
-  let mVars ← try apply mVar (mkConst (ctor.name ++ relationSuffix)) catch _ => [mVar]
+  let ctorIHs := ctorIHs.map fun ih => subst.get ih
+  let mVars ← try apply mVar (mkConst (ctor.name ++ relationSuffix)) 
+              catch _ => let relationRef := Lean.mkConst (ctor.name ++ relationSuffix)
+                         let relationRef := mkAppN relationRef (motives ++ methods.concat)
+                         let relationApp ← mkRelationApp its ctor.type relationRef ctorIHs
+                         trace[Meta.appBuilder] relationRef
+                         try apply mVar relationApp
+                         catch _ => [mVar]
   return (subst, mVars)
 
 def totalityInnerTac (hIdx sIdx ctorIdx : Nat) (its : List InductiveType) (mVar : MVarId) :
@@ -331,7 +352,7 @@ def totalityInnerTac (hIdx sIdx ctorIdx : Nat) (its : List InductiveType) (mVar 
               setGoals [mVars.get! 0]
               let (_, mmVars) ← totalityModelTac its methods sIdx ctorIdx hdArgs ctorIHs accSubst $ mVars.get! 0
               setGoals [mVars.get! 1]
-              let (_, rmVars) ← totalityRelationTac its sIdx ctorIdx hdArgs accSubst $ mVars.get! 1
+              let (_, rmVars) ← totalityRelationTac its motives methods sIdx ctorIdx hdArgs ctorIHs accSubst $ mVars.get! 1
               return (mmVars.append rmVars).toArray
 
 def totalityOuterTac (hIdx : Nat) (its : List InductiveType) : TacticM Unit := do
@@ -359,7 +380,7 @@ def totalityOuterTac (hIdx : Nat) (its : List InductiveType) : TacticM Unit := d
     let mut methodGoalss : Array (Array MVarId) := #[]
     for i in [:methodss.size] do
       for j in [:methodss[i].size] do
-        let gs ← totalityInnerTac methodss hIdx i j its $ methodGoals.get! methodGoalss.size
+        let gs ← totalityInnerTac motives methodss hIdx i j its $ methodGoals.get! methodGoalss.size
         methodGoalss := methodGoalss.push gs
     let methodGoals := methodGoalss.concat
     setGoals methodGoals.toList

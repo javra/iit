@@ -202,7 +202,7 @@ match e with
               let sref := mkApp (liftBVarsThree sref) $ mkBVar 2
               let dref := mkApp (mkApp (liftBVarsThree dref) $ mkBVar 2) $ mkBVar 1
               let t'   := liftBVarsTwo t
-              mkForall n e.binderInfo t $ -- syntax
+              mkForall n BinderInfo.implicit t $ -- syntax
               mkForall (n ++ methodSuffix) BinderInfo.implicit td $ -- method
               mkForall (n ++ relationSuffix) BinderInfo.default tr $ -- relation
               ← elimRelationCtor (liftBVarsTwo b) sref dref (liftBVarsOne b)
