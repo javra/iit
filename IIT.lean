@@ -27,7 +27,7 @@ leading_parser "iit " >> declId >> declSig >> Lean.Parser.optional (":=" <|> "wh
 
 -- The syntax for the totality proof opens a tactic environment
 @[commandParser] def «iit_termination» : Parser :=
-leading_parser:leadPrec "iit_termination " >> @Tactic.tacticSeq
+leading_parser:leadPrec "iit_termination " >> Tactic.tacticSeq
 
 end Parser
 
@@ -60,6 +60,7 @@ def elabIIT (elems : Array Syntax) : CommandElabM Unit := do
     | _                     => false
   -- There should be only one `iit_termination` command
   let views ← elems.mapM inductiveSyntaxToView
+  if views.size = 0 then throwError "Empty IIT declaration."
   let view0 := views[0]
   runTermElabM view0.declName fun vars => do
     withRef view0.ref do
@@ -128,22 +129,22 @@ section MutualElab
 open Lean.Elab.Command
 open Lean
 
--- Throw an error when encountering a lone IIT declaration
-@[commandElab «iit»] def elabLoneIIT : CommandElab :=
-λ _ => throwError "Must declare IIT in a 'mutual' block."
+  -- Throw an error when encountering a lone IIT or termination declaration
+  @[commandElab «iit»] def elabLoneIIT : CommandElab :=
+  λ _ => throwError "Must declare IIT in a 'mutual' block."
 
--- Checks if all declarations in the block are IITs
-private def isIITMutual (stx : Syntax) : Bool :=
-  stx[1].getArgs.all fun elem =>
+  @[commandElab «iit_termination»] def elabLoneIITTermination : CommandElab :=
+  λ _ => throwError "Must declare IIT Termination in a 'mutual' after a series of IIT declarations."
+
+  -- Checks if all declarations in the block are IITs
+  private def isIITMutual (stx : Syntax) : Bool := stx[1].getArgs.all fun elem =>
     let declKind := elem[0].getKind
     (declKind == `«iit») || (declKind == `«iit_termination»)
 
--- If all declarations in a mutual block are IITs, elab thwem,
--- otherwise elab as before
-@[commandElab «mutual»] def elabIITMutual : CommandElab :=
-fun stx =>
-  if isIITMutual stx then elabIIT stx[1].getArgs
-  else elabMutual stx
+  -- If all declarations in a mutual block are IITs, elab them, otherwise elab as before
+  @[commandElab «mutual»] def elabIITMutual : CommandElab := fun stx =>
+    if isIITMutual stx then elabIIT stx[1].getArgs
+    else elabMutual stx
 
 end MutualElab
 
