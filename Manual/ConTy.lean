@@ -69,29 +69,21 @@ theorem Con_tot (Γ : Con) : PSigma (Conᵣ Conₘ Tyₘ nilₘ extₘ baseₘ p
     exact PSigma.mk nilₘ nilᵣ
   · intro Δₑ Aₑ Δ_ih A_ih ctor_w
     inversion ctor_w with Δ_w A_w
-    refine PSigma.mk ?_ ?_
-    · apply extₘ (Δ_ih Δ_w).1 (A_ih (Δ_ih Δ_w).2 A_w).1
-    · apply extᵣ (Δ_ih Δ_w).2 (A_ih (Δ_ih Δ_w).2 A_w).2
+    cases Δ_ih Δ_w with | mk Δₘ Δᵣ => ?_
+    cases A_ih Δᵣ A_w with | mk Aₘ Aᵣ => ?_
+    exact PSigma.mk (extₘ Δₘ Aₘ) (extᵣ Δᵣ Aᵣ)
   · intro Γₑ Γ_ih Δ Δₘ Δᵣ ctor_w
     cases Δ with | mk Δₑ Δ_w => ?_
     simp only at ctor_w
     clarifyIndices ctor_w
-    refine PSigma.mk ?_ ?_
-    · apply baseₘ
-    · apply baseᵣ
-      assumption
+    exact PSigma.mk (baseₘ Δₘ) (baseᵣ Δᵣ)
   · intro Δₑ Aₑ Bₑ Δ_ih A_ih B_ih Δ' Δ'ₘ Δ'ᵣ ctor_w
     cases Δ' with | mk Δ'ₑ Δ_w => ?_
     simp only at ctor_w
     clarifyIndices ctor_w
     inversion ctor_w with Δ_w A_w B_w
-    apply PSigma.mk
-    simp_all
-    apply piᵣ Δ'ᵣ (A_ih _ _).2 (B_ih _ _).2
-    repeat assumption
-    apply extᵣ
-    assumption
-    apply (A_ih _ _).2
-    assumption
+    cases A_ih Δ'ᵣ A_w with | mk Aₘ Aᵣ => ?_
+    cases B_ih (extᵣ Δ'ᵣ Aᵣ) B_w with | mk Bₘ Bᵣ => ?_ 
+    exact PSigma.mk (piₘ Δ'ₘ Aₘ Bₘ) (piᵣ Δ'ᵣ Aᵣ Bᵣ)
 
 end
