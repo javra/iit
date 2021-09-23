@@ -1,3 +1,6 @@
+import IIT.PropInversion
+import IIT.ClarifyIndices
+
 mutual
 inductive Conₑ : Type
 | nilₑ : Conₑ
@@ -53,5 +56,42 @@ inductive Tyᵣ : {Γ : Con} → (Γₘ : Conₘ Γ) → (A : Ty Γ) → Tyₘ �
            ∀ {B} {Bₘ : Tyₘ (extₘ Γₘ Aₘ) B}, Tyᵣ (extₘ Γₘ Aₘ) B Bₘ →
              Tyᵣ Γₘ (pi Γ A B) (piₘ Γₘ Aₘ Bₘ)
 end
+
+open Conᵣ Tyᵣ
+
+theorem Con_tot (Γ : Con) : PSigma (Conᵣ Conₘ Tyₘ nilₘ extₘ baseₘ piₘ Γ) := by
+  cases Γ with | mk Γₑ Γ_w => ? _
+  apply Conₑ.recOn Γₑ 
+    (motive_1 := fun Γₑ => ∀ Γ_w, PSigma (Conᵣ Conₘ Tyₘ nilₘ extₘ baseₘ piₘ ⟨Γₑ, Γ_w⟩))
+    (motive_2 := fun Aₑ => ∀ {Γ Γₘ} (Γᵣ : Conᵣ Conₘ Tyₘ nilₘ extₘ baseₘ piₘ Γ Γₘ)
+                   A_w, PSigma (Tyᵣ Conₘ Tyₘ nilₘ extₘ baseₘ piₘ Γₘ ⟨Aₑ, A_w⟩))
+  · intro Γ_w
+    exact PSigma.mk nilₘ nilᵣ
+  · intro Δₑ Aₑ Δ_ih A_ih ctor_w
+    inversion ctor_w with Δ_w A_w
+    refine PSigma.mk ?_ ?_
+    · apply extₘ (Δ_ih Δ_w).1 (A_ih (Δ_ih Δ_w).2 A_w).1
+    · apply extᵣ (Δ_ih Δ_w).2 (A_ih (Δ_ih Δ_w).2 A_w).2
+  · intro Γₑ Γ_ih Δ Δₘ Δᵣ ctor_w
+    cases Δ with | mk Δₑ Δ_w => ?_
+    simp only at ctor_w
+    clarifyIndices ctor_w
+    refine PSigma.mk ?_ ?_
+    · apply baseₘ
+    · apply baseᵣ
+      assumption
+  · intro Δₑ Aₑ Bₑ Δ_ih A_ih B_ih Δ' Δ'ₘ Δ'ᵣ ctor_w
+    cases Δ' with | mk Δ'ₑ Δ_w => ?_
+    simp only at ctor_w
+    clarifyIndices ctor_w
+    inversion ctor_w with Δ_w A_w B_w
+    apply PSigma.mk
+    simp_all
+    apply piᵣ Δ'ᵣ (A_ih _ _).2 (B_ih _ _).2
+    repeat assumption
+    apply extᵣ
+    assumption
+    apply (A_ih _ _).2
+    assumption
 
 end
