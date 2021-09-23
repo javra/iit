@@ -9,7 +9,8 @@ namespace Lean
 
 namespace Meta
 
-def inversion (mVar : MVarId) (fVar : FVarId) : MetaM (Array FVarId × MVarId) :=
+def inversion (mVar : MVarId) (fVar : FVarId) (names : Array Name) :
+  MetaM (Array Name × Array FVarId × MVarId) :=
 withMVarContext mVar do
   checkNotAssigned mVar `inversion
   let target ← getMVarType mVar
@@ -21,46 +22,60 @@ withMVarContext mVar do
   let fields ← withMVarContext trueMVar do
     let fields ← fields.mapM fun fv => do
        let fv ← whnf fv
-       let name := if fv.isFVar then (← getLocalDecl fv.fvarId!).userName else Name.anonymous
-       pure $ (← inferType fv, name)
-    fields.filterM fun (e, _) => do return (← getLevel e).isZero
+       let name ← if fv.isFVar then pure (← getLocalDecl fv.fvarId!).userName else
+                    Name.anonymous
+       inferType fv
+    fields.filterM fun e => do return (← getLevel e).isZero
   -- Prove fields
   let mut mVar       := mVar
   let mut fieldFVars := #[]
-  for (e, name) in fields do
-    let (fieldFVar, mVar') ← withMVarContext mVar do
+  let mut names      := names
+  for (e : Expr) in fields do
+    let (names',fieldFVar, mVar') ← withMVarContext mVar do
       let fieldMVar ← mkFreshExprMVar e
       let fsgs ← cases fieldMVar.mvarId! fVar
       assumption fsgs[0].mvarId
+      let name := if names.size > 0 then names[0] else Name.anonymous
       let fMVar ← mkFreshExprMVar $ mkForall name BinderInfo.default e target
       assignExprMVar mVar $ mkApp fMVar fieldMVar
-      intro fMVar.mvarId! name
+      let (fieldFVar, mVar') ← intro fMVar.mvarId! name
+      pure (names[1:], fieldFVar, mVar')
+    names      := names'
     mVar       := mVar'
     fieldFVars := fieldFVars.push fieldFVar
-  return (fieldFVars, mVar)
+  return (names[1:], fieldFVars, mVar)
 
 end Meta
 
 open Tactic
 
-syntax (name := inversion) "inversion" (colGt ident)+ : tactic
+syntax (name := inversion) "inversion" (colGt ident)+ ("with" (colGt ident)+)? : tactic
 @[tactic inversion] def elabInversion : Tactic
+| `(tactic|inversion $fVars* with $names*) => do
+  let mut names := names.map getNameOfIdent'
+  for f in fVars do
+    let rnames ← withMainContext do
+      let fvarId ← getFVarId f
+      let (rnames, _, mVar) ← Meta.inversion (← getMainGoal) (← getFVarId f) names
+      replaceMainGoal [mVar]
+      pure rnames
+    names := rnames
 | `(tactic|inversion $fVars*) => do
   forEachVar fVars fun mVar fVar => do
-  let (_, mVar) ← Meta.inversion mVar fVar
+  let (_, _, mVar) ← Meta.inversion mVar fVar #[]
   return mVar
 | _ => throwUnsupportedSyntax
 
 end Lean
 
-/-
+/--
 -- Examples
 inductive Foo : Nat → Nat → Prop
 | mk1 : Foo 5 3
-| mk2 : (y : Foo 9 8) → Foo 1 2
+| mk2 : (y : Foo 9 8) → (z : Foo 13 25) → Foo 1 2
 
 def bar (n : Nat) (x : Foo 1 n) (A : Type) (p : (y : Foo 9 8) → A) : A := by
-  inversion x
+  inversion x with y z
   apply p
   assumption
 
