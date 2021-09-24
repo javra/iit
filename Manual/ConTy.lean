@@ -59,8 +59,8 @@ end
 
 open Conᵣ Tyᵣ
 
-theorem Con_tot (Γ : Con) : PSigma (Conᵣ Conₘ Tyₘ nilₘ extₘ baseₘ piₘ Γ) := by
-  cases Γ with | mk Γₑ Γ_w => ? _
+noncomputable def Con_tot (Γ : Con) : PSigma (Conᵣ Conₘ Tyₘ nilₘ extₘ baseₘ piₘ Γ) := by
+  cases Γ with | mk Γₑ Γ_w => ?_
   apply Conₑ.recOn Γₑ 
     (motive_1 := fun Γₑ => ∀ Γ_w, PSigma (Conᵣ Conₘ Tyₘ nilₘ extₘ baseₘ piₘ ⟨Γₑ, Γ_w⟩))
     (motive_2 := fun Aₑ => ∀ {Γ Γₘ} (Γᵣ : Conᵣ Conₘ Tyₘ nilₘ extₘ baseₘ piₘ Γ Γₘ)
@@ -85,5 +85,41 @@ theorem Con_tot (Γ : Con) : PSigma (Conᵣ Conₘ Tyₘ nilₘ extₘ baseₘ p
     cases A_ih Δ'ᵣ A_w with | mk Aₘ Aᵣ => ?_
     cases B_ih (extᵣ Δ'ᵣ Aᵣ) B_w with | mk Bₘ Bᵣ => ?_ 
     exact PSigma.mk (piₘ Δ'ₘ Aₘ Bₘ) (piᵣ Δ'ᵣ Aᵣ Bᵣ)
+    
+noncomputable def Ty_tot (Γ : Con) (A : Ty Γ) :
+  PSigma (Tyᵣ Conₘ Tyₘ nilₘ extₘ baseₘ piₘ (Con_tot Conₘ Tyₘ nilₘ extₘ baseₘ piₘ Γ).1 A) := by
+  cases Γ with | mk Γₑ Γ_w => ?_
+  cases A with | mk Aₑ A_w => ?_
+  apply Tyₑ.recOn Aₑ
+    (motive_1 := fun Γₑ => ∀ Γ_w, PSigma (Conᵣ Conₘ Tyₘ nilₘ extₘ baseₘ piₘ ⟨Γₑ, Γ_w⟩))
+    (motive_2 := fun Aₑ => ∀ {Γ Γₘ} (Γᵣ : Conᵣ Conₘ Tyₘ nilₘ extₘ baseₘ piₘ Γ Γₘ)
+                   A_w, PSigma (Tyᵣ Conₘ Tyₘ nilₘ extₘ baseₘ piₘ Γₘ ⟨Aₑ, A_w⟩))
+  · intro Γ_w
+    exact PSigma.mk nilₘ nilᵣ
+  · intro Δₑ Aₑ Δ_ih A_ih ctor_w
+    inversion ctor_w with Δ_w A_w
+    cases Δ_ih Δ_w with | mk Δₘ Δᵣ => ?_
+    cases A_ih Δᵣ A_w with | mk Aₘ Aᵣ => ?_
+    exact PSigma.mk (extₘ Δₘ Aₘ) (extᵣ Δᵣ Aᵣ)
+  · intro Γₑ Γ_ih Δ Δₘ Δᵣ ctor_w
+    cases Δ with | mk Δₑ Δ_w => ?_
+    simp only at ctor_w
+    clarifyIndices ctor_w
+    exact PSigma.mk (baseₘ Δₘ) (baseᵣ Δᵣ)
+  · intro Δₑ Aₑ Bₑ Δ_ih A_ih B_ih Δ' Δ'ₘ Δ'ᵣ ctor_w
+    cases Δ' with | mk Δ'ₑ Δ_w => ?_
+    simp only at ctor_w
+    clarifyIndices ctor_w
+    inversion ctor_w with Δ_w A_w B_w
+    cases A_ih Δ'ᵣ A_w with | mk Aₘ Aᵣ => ?_
+    cases B_ih (extᵣ Δ'ᵣ Aᵣ) B_w with | mk Bₘ Bᵣ => ?_ 
+    exact PSigma.mk (piₘ Δ'ₘ Aₘ Bₘ) (piᵣ Δ'ᵣ Aᵣ Bᵣ)
+  · exact (Con_tot Conₘ Tyₘ nilₘ extₘ baseₘ piₘ ⟨Γₑ, Γ_w⟩).2
+
+noncomputable def Con.rec (Γ : Con) : Conₘ Γ :=
+(Con_tot Conₘ Tyₘ nilₘ extₘ baseₘ piₘ Γ).1
+
+noncomputable def Ty.rec (Γ : Con) (A : Ty Γ) : Tyₘ (Con.rec Conₘ Tyₘ nilₘ extₘ baseₘ piₘ Γ) A :=
+(Ty_tot Conₘ Tyₘ nilₘ extₘ baseₘ piₘ Γ A).1  
 
 end
