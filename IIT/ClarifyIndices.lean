@@ -25,6 +25,8 @@ def substituteWithCasesOn (mVar : MVarId) (fVar : FVarId) (e : Expr) : MetaM Exp
 withMVarContext mVar do
   let eqSubgoals ← cases (← mkFreshExprMVar $ mkConst `True).mvarId! fVar
   withMVarContext mVar do
+    unless eqSubgoals.size > 0 do
+      return e
     let substResult := eqSubgoals[0].subst.apply e
     -- In case of a trivial substitution, look for a expression that is mapped _to_ e and return that one
     if ← isDefEq substResult e then
@@ -116,7 +118,6 @@ syntax (name := clarifyIndices) "clarifyIndices" (colGt ident)+ : tactic
 | _ => throwUnsupportedSyntax
 
 end Lean
-
 
 -- Examples
 inductive Foo : (n : Nat) → Fin n → Prop
