@@ -120,6 +120,12 @@ noncomputable def Con.rec (Γ : Con) : Conₘ Γ :=
 (Con_tot Conₘ Tyₘ nilₘ extₘ baseₘ piₘ Γ).1
 
 noncomputable def Ty.rec (Γ : Con) (A : Ty Γ) : Tyₘ (Con.rec Conₘ Tyₘ nilₘ extₘ baseₘ piₘ Γ) A :=
-(Ty_tot Conₘ Tyₘ nilₘ extₘ baseₘ piₘ Γ A).1  
+(Ty_tot Conₘ Tyₘ nilₘ extₘ baseₘ piₘ Γ A).1
+
+theorem nil_beta : Con.rec Conₘ Tyₘ nilₘ extₘ baseₘ piₘ nil = nilₘ := rfl
+
+theorem ext_beta (Γ : Con) (Γₘ : Conₘ Γ) (A : Ty Γ) (Aₘ : Tyₘ Γₘ A) :
+  Con.rec Conₘ Tyₘ nilₘ extₘ baseₘ piₘ (ext Γ A) = extₘ Γₘ Aₘ :=
+rfl
 
 end

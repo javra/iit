@@ -22,8 +22,6 @@ withMVarContext mVar do
   let fields ← withMVarContext trueMVar do
     let fields ← fields.mapM fun fv => do
        let fv ← whnf fv
-       let name ← if fv.isFVar then pure (← getLocalDecl fv.fvarId!).userName else
-                    Name.anonymous
        inferType fv
     fields.filterM fun e => do return (← getLevel e).isZero
   -- Prove fields
@@ -68,18 +66,19 @@ syntax (name := inversion) "inversion" (colGt ident)+ ("with" (colGt ident)+)? :
 
 end Lean
 
-/--
+/-
 -- Examples
 inductive Foo : Nat → Nat → Prop
 | mk1 : Foo 5 3
 | mk2 : (y : Foo 9 8) → (z : Foo 13 25) → Foo 1 2
 
-def bar (n : Nat) (x : Foo 1 n) (A : Type) (p : (y : Foo 9 8) → A) : A := by
+example (n : Nat) (x : Foo 1 n) (A : Type) (p : (y : Foo 9 8) → A) : A := by
   inversion x with y z
-  apply p
-  assumption
+  exact p y
 
-def baz (n : Nat) (x : Foo (2 - 1) n) (A : Type) (p : (y : Foo 9 8) → A) : A := by
+example (n : Nat) (x : Foo (2 - 1) n) (A : Type) (p : (y : Foo 9 8) → A) : A := by
   skip
   inversion x
+  apply p
+  assumption
 -/

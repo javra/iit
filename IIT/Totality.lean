@@ -240,9 +240,19 @@ def appAssumption (f : Expr) : MetaM Expr := do
     return mkApp f mVar
   | _ => throwError "appAssumption can only be applied to functions."
 
+def mkMethodAppArgTmP (type : Expr) (ctorIHs : Array Expr) : MetaM Expr := do
+match ctorAppIdx? its type with
+| none => type
+| some _ =>
+  match type with
+  | app f e _   => mkApp (← mkMethodAppArgTmP f ctorIHs) e --- call some ctorIH instead of having `e` here in case of it being a loose bvar :ugly:
+  | const n _ _ => mkAppN (mkConst (n ++ relationSuffix)) (motives ++ methods.concat)
+  | _ => type
+
 def mkMethodAppArg (type : Expr) (ctorIHs : Array Expr) : MetaM Expr := do
 match type with
-| app f e _ => let e := mkSnd e
+| app f e _ => let e := mkSnd $ e --← mkMethodAppArgTmP its motives methods e ctorIHs
+               trace[Meta.appBuilder] ← ctorIHs.mapM fun c => inferType c
                mkAppM' (← mkMethodAppArg f ctorIHs) #[e]
 | _         => ctorIHs[0]
 
@@ -277,6 +287,7 @@ withMVarContext mVar do
       subst := subst.append s
       mVar  := mVar'
   let ctorIHs := ctorIHs.map fun ih => subst.get ih
+  if ctorIHs.size > 2 then return (subst, [mVar]) -- temporary
   let mVars ← try apply mVar $ ← mkMethodApp its ctor.type methods[sIdx][ctorIdx] ctorIHs
               catch _ => try apply mVar methods[sIdx][ctorIdx]
                          catch _ => [mVar]
@@ -315,6 +326,7 @@ withMVarContext mVar do
       mVar  := mVar'
   -- Try applying relatedness trivially
   let ctorIHs := ctorIHs.map fun ih => subst.get ih
+  if ctorIHs.size > 2 then return (subst, [mVar]) -- temporary
   let mVars ← try apply mVar (mkConst (ctor.name ++ relationSuffix)) 
               catch _ => let relationRef := Lean.mkConst (ctor.name ++ relationSuffix)
                          let relationRef := mkAppN relationRef (motives ++ methods.concat)
@@ -336,7 +348,7 @@ def totalityInnerTac (hIdx sIdx ctorIdx : Nat) (its : List InductiveType) (mVar 
     withMVarContext mVar do
       let (ctorw, mVar) ← intro mVar "ctorw"
       withMVarContext mVar do
-        let (invs, mVar) ← Meta.inversion mVar ctorw
+        let (_, invs, mVar) ← Meta.inversion mVar ctorw #["foo", "foo", "foo", "foo"]
         withMVarContext mVar do
           let ctorIndices ← collectCtorIndices its ctor.type
           let ctorIndices := ctorIndices.map fun ci => instantiateRev ci $ ctorArgs.map CtorArg.toExpr

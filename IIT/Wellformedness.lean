@@ -4,6 +4,7 @@ import Lean.Elab
 import Init.Data.Array.Basic
 import IIT.InductiveUtils
 import IIT.Erasure
+import IIT.Util
 
 open Lean
 open Elab
@@ -41,13 +42,13 @@ match e with
 
 def wellfHeader (i : Nat) (e : Expr := (its.get! i).type) : Expr :=
 match e with
-| sort _ _        => mkForall "e" BinderInfo.default (mkConst $ (its.get! i).name ++ erasureSuffix) (mkSort levelZero)
+| sort _ _        => mkForall "e" BinderInfo.default 
+                      (mkConst $ (its.get! i).name ++ erasureSuffix) (mkSort levelZero)
 | forallE n t b d => 
   match headerAppIdx? its t with
-  | some j => mkForall n e.binderInfo (mkConst $ (its.get! j).name ++ erasureSuffix) (wellfHeader i b)
+  | some j => mkForall n e.binderInfo 
+                (mkConst $ (its.get! j).name ++ erasureSuffix) (wellfHeader i b)
   | none   => mkForall n e.binderInfo t (wellfHeader i b)
-| lam n t b d     => mkLambda n e.binderInfo (wellfHeader i t) (wellfHeader i b) --TODO not sure if unreachable
-| app f e d       => mkApp (wellfHeader i f) e
 | _ => e
 
 def addWIfHeader (n : Name) (l : List Level) : Expr :=
@@ -77,11 +78,11 @@ match e with
   match headerAppIdx? its t with
   | some j => mkForall (n ++ "e") BinderInfo.default (mkConst $ (eits.get! j).name) $
               mkForall (n ++ "w") b.binderInfo 
-               (mkApp (liftLooseBVars (wellfCtorTmS its t) 0 1) (mkBVar 0)) $
-               wellfCtor (liftLooseBVars b 0 1) (mkApp (liftLooseBVars eref 0 2) (mkBVar 1))
+               (mkApp (liftBVarsOne (wellfCtorTmS its t)) (mkBVar 0)) $
+               wellfCtor (liftBVarsOne b) (mkApp (liftBVarsTwo eref) (mkBVar 1))
   | none   => mkForall n e.binderInfo t $ 
-              wellfCtor b (mkApp (liftLooseBVars eref 0 1) (mkBVar 0))
-| _ => mkApp (wellfCtorTmS its e) eref -- this is the "El" case
+              wellfCtor b (mkApp (liftBVarsOne eref) (mkBVar 0))
+| _ => mkApp (wellfCtorTmS its e) eref
 
 end
 
