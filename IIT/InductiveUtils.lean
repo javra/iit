@@ -57,13 +57,13 @@ def getResultingUniverse : List InductiveType → TermElabM Level
 
 def collectUsed (indTypes : List InductiveType) : StateRefT CollectFVars.State MetaM Unit := do
   indTypes.forM fun indType => do
-    Term.collectUsedFVars indType.type
+    Meta.collectUsedFVars indType.type
     indType.ctors.forM fun ctor =>
-      Term.collectUsedFVars ctor.type
+      Meta.collectUsedFVars ctor.type
 
 def removeUnused (vars : Array Expr) (indTypes : List InductiveType) : TermElabM (LocalContext × LocalInstances × Array Expr) := do
   let (_, used) ← (collectUsed indTypes).run {}
-  Term.removeUnused vars used
+  Meta.removeUnused vars used
 
 def withUsed {α} (vars : Array Expr) (indTypes : List InductiveType) (k : Array Expr → TermElabM α) : TermElabM α := do
   let (lctx, localInsts, vars) ← removeUnused vars indTypes
@@ -282,9 +282,9 @@ def mkAuxConstructions (viewNames : List Name) : TermElabM Unit := do
     if hasUnit && hasProd then mkBInductionOn n
 
 instance : Inhabited InductiveType :=
-⟨{ name := arbitrary, type := arbitrary, ctors := arbitrary }⟩
+⟨{ name := default, type := default, ctors := default }⟩
 
 instance : Inhabited Constructor :=
-⟨{ name := arbitrary, type := arbitrary }⟩
+⟨{ name := default, type := default }⟩
 
 end IIT

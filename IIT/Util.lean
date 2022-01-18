@@ -64,7 +64,7 @@ s1.map.foldl f s2
 
 open Tactic
 
-instance : Inhabited CasesSubgoal := Inhabited.mk $ CasesSubgoal.mk arbitrary ""
+instance : Inhabited CasesSubgoal := Inhabited.mk $ CasesSubgoal.mk default ""
 
 def casesPSigma (mVar : MVarId) (fVar : FVarId) (fstName sndName : Name) :
   MetaM (FVarId × FVarId × MVarId) := do

@@ -47,7 +47,7 @@ structure PreElabHeaderResult extends ElabHeaderResult where
   fVar   : Expr
 
 instance : Inhabited PreElabHeaderResult :=
-  ⟨{ toElabHeaderResult := arbitrary, fVar := arbitrary }⟩
+  ⟨{ toElabHeaderResult := default, fVar := default }⟩
 
 partial def withPreElabHeaders {α} (views : Array InductiveView)
   (x : Array PreElabHeaderResult → TermElabM α) (hrs : Array PreElabHeaderResult := #[]) : TermElabM α := do

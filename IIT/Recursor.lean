@@ -112,7 +112,7 @@ if i >= its.length then return recs else do
                                      levelParams  := [], --TODO
                                      value    := recVal,
                                      type     := recType,
-                                     hints    := arbitrary,
+                                     hints    := default,
                                      safety   := DefinitionSafety.safe }
   recDecls (i + 1) (recs.append [decl])
 

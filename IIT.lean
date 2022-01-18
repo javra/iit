@@ -113,7 +113,7 @@ def elabIIT (elems : Array Syntax) : CommandElabM Unit := do
                                              levelParams  := [], -- TODO
                                              value        := mv,
                                              type         := totTypes.get! i,
-                                             hints        := arbitrary -- TODO
+                                             hints        := default -- TODO
                                              safety       := DefinitionSafety.safe }
           addDecl decl
         -- Declare recursors

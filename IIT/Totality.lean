@@ -129,10 +129,10 @@ match ha with
 
 private partial def HeaderArg'.toRelationArray (has : Array HeaderArg')
   (i : Nat := 0) (fVars : Array FVarId := #[]) : Array FVarId :=
-if i >= has.size then return fVars else do
+if i >= has.size then fVars else
   match has[i] with
-  | internal _ _ _ r => return toRelationArray has (i + 1) $ fVars.push r
-  | _                => return toRelationArray has (i + 1) fVars
+  | internal _ _ _ r => toRelationArray has (i + 1) $ fVars.push r
+  | _                => toRelationArray has (i + 1) fVars
 
 inductive CtorArg where
 | internal : FVarId → CtorArg
@@ -193,7 +193,7 @@ match ctorType with
   | none   => introIHs mVar b $ fVars
 | _ => return (fVars, mVar)
 
-private def collectCtorIndicesTmS (e : Expr) (inds : Array Expr := #[]) : Array Expr := do
+private def collectCtorIndicesTmS (e : Expr) (inds : Array Expr := #[]) : Array Expr :=
 match e with
 | app f e _   => let inds := collectCtorIndicesTmS f inds
                  inds.push (wellfCtorTmP its e)
@@ -396,7 +396,7 @@ def totalityOuterTac (hIdx : Nat) (its : List InductiveType) : TacticM Unit := d
         methodGoalss := methodGoalss.push gs
     let methodGoals := methodGoalss.concat
     setGoals methodGoals.toList
-    evalTactic $ ← `(tactic|allGoals (repeat assumption))
+    evalTactic $ ← `(tactic|all_goals (repeat assumption))
 
 instance : Inhabited (Syntax.SepArray ",") := Inhabited.mk $ Syntax.SepArray.ofElems #[]
 
