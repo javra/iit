@@ -57,8 +57,6 @@ def methodTmP (e em : Expr) : MetaM Expr := do
 match e with
 | app f e d => let fm := appFn! em
                let em := appArg! em
-               /-if em.isConstOf "EXT" then mkApp (← methodTmP f fm) e
-                else mkApp (mkApp (← methodTmP f fm) e) (← methodTmP e em)-/
                let f_type := bindingDomain! $ ← inferType f
                match headerAppIdx? its f_type with
                | some _ => mkApp (mkApp (← methodTmP f fm) e) (← methodTmP e em)
@@ -144,7 +142,7 @@ match e with
 | app f e _   => let fm := appFn! em
                  let em := appArg! em
                  mkApp (mkApp (elimRelationHeaderTmS f fm) e) em
-| const n l _ =>
+| const n _ _ =>
   match headerAppIdx? its e with
   | some j => motives[j]
   | none   => e
@@ -158,14 +156,13 @@ match e with
               mkSort levelZero
 | forallE n t b _ =>
   match headerAppIdx? its t with
-  | some _ => let b'   := liftBVarsOne b
-              let td   := elimRelationHeaderTmS its motives (liftBVarsOne t) t
+  | some _ => let td   := elimRelationHeaderTmS its motives (liftBVarsOne t) t
               let td   := mkApp td (mkBVar 0)
               let sref := mkApp (liftBVarsTwo sref) (mkBVar 1)
               let dref := mkApp (mkApp (liftBVarsTwo dref) (mkBVar 1)) (mkBVar 0)
               mkForall n BinderInfo.default t $
               mkForall (n ++ motiveSuffix) e.binderInfo td $
-              elimRelationHeader b' sref dref
+              elimRelationHeader (liftBVarsOne b) sref dref
   | none   => let sref := mkApp (liftBVarsOne sref) $ mkBVar 0
               let dref := mkApp (liftBVarsOne dref) $ mkBVar 0
               mkForall n e.binderInfo t $
@@ -182,7 +179,6 @@ match e with
   let fm := appFn! em
   let em := appArg! em            
   let f_type := bindingDomain! $ ← inferType f
-  --bindingDomain! $ ← inferType f
   match headerAppIdx? its f_type with --TODO check if `f_arg` is a ctor app
   | some _ => let t := mkApp (← elimRelationCtorTmS f fm) e
               mkApp t $ ← methodTmP its methods e em
@@ -201,7 +197,6 @@ match e with
               let tr := mkApp (mkApp tr (mkBVar 1)) (mkBVar 0)
               let sref := mkApp (liftBVarsThree sref) $ mkBVar 2
               let dref := mkApp (mkApp (liftBVarsThree dref) $ mkBVar 2) $ mkBVar 1
-              let t'   := liftBVarsTwo t
               mkForall n BinderInfo.implicit t $ -- syntax
               mkForall (n ++ methodSuffix) BinderInfo.implicit td $ -- method
               mkForall (n ++ relationSuffix) BinderInfo.default tr $ -- relation
