@@ -14,25 +14,16 @@ iit Tm : (Γ : Con) → (A : Ty Γ) → Type where
 | El : (Δ : Con) → Tm Δ (Ty.U Δ)
 
 iit_termination
-  · apply Ty.pi.m _ (A.ih _ _).1 (B.ih _ _).1
+  · apply Ty.pi.m _ (A.ih _ _).1 (B.ih (Con.ext.r _ _ _ _ _ _ _ _ _ (A.ih _ _).2) _).1
     repeat assumption 
-    apply Con.ext.r
-    repeat assumption
-    apply (A.ih _ _).2
   · apply Ty.pi.r (A.r := (A.ih _ _).2) (B.r := (B.ih _ _).2)
     repeat assumption
-  · apply Ty.pi.m _ (A.ih _ _).1 (B.ih _ _).1
+  · apply Ty.pi.m _ (A.ih _ _).1 (B.ih (Con.ext.r _ _ _ _ _ _ _ _ _ (A.ih _ _).2) _).1
     repeat assumption 
-    apply Con.ext.r
-    repeat assumption
-    apply (A.ih _ _).2
   · apply Ty.pi.r (A.r := (A.ih _ _).2) (B.r := (B.ih _ _).2)
     repeat assumption
-  · apply Ty.pi.m _ (A.ih _ _).1 (B.ih _ _).1
+  · apply Ty.pi.m _ (A.ih _ _).1 (B.ih (Con.ext.r _ _ _ _ _ _ _ _ _ (A.ih _ _).2) _).1
     repeat assumption 
-    apply Con.ext.r
-    repeat assumption
-    apply (A.ih _ _).2
   · apply Ty.pi.r (A.r := (A.ih _ _).2) (B.r := (B.ih _ _).2)
     repeat assumption
 
