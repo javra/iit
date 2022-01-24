@@ -281,18 +281,17 @@ withMVarContext mVar do
   let mut subst := subst
   for rFVar in rFVars do
     let res ← try (clarifyIndicesTac mVar (subst.get rFVar).fvarId!) catch _ => pure none
+    --let res := none
     match res with
     | none            => ()
     | some (s, mVar') => do
-      subst := subst.append s
-      mVar  := mVar'
+        subst := subst.append s
+        mVar  := mVar'
   let ctorIHs := ctorIHs.map fun ih => subst.get ih
-  if ctorIHs.size > 2 then return (subst, [mVar]) -- temporary
   let mVars ← try apply mVar $ ← mkMethodApp its ctor.type methods[sIdx][ctorIdx] ctorIHs
               catch _ => try apply mVar methods[sIdx][ctorIdx]
                          catch _ => [mVar]
   return (subst, mVars)
-
 
 partial def mkRelationApp (ctorType relationRef : Expr) (ctorIHs : Array Expr): MetaM Expr := do
 match ctorType with
@@ -348,7 +347,7 @@ def totalityInnerTac (hIdx sIdx ctorIdx : Nat) (its : List InductiveType) (mVar 
     withMVarContext mVar do
       let (ctorw, mVar) ← intro mVar "ctorw"
       withMVarContext mVar do
-        let (_, invs, mVar) ← Meta.inversion mVar ctorw #["foo", "foo", "foo", "foo"]
+        let (_, invs, mVar) ← Meta.inversion mVar ctorw #["foo", "foo", "foo", "foo"] --TODO cleanup
         withMVarContext mVar do
           let ctorIndices ← collectCtorIndices its ctor.type
           let ctorIndices := ctorIndices.map fun ci => instantiateRev ci $ ctorArgs.map CtorArg.toExpr

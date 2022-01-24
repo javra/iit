@@ -27,11 +27,11 @@ match e with
   match ← findLocalDecl? v with
   | some _ => false
   | none   => true
-| Expr.app f e _ => containsUnknownFVars? mVar f <|> containsUnknownFVars? mVar e
-| Expr.lam _ t b _ => containsUnknownFVars? mVar t <|> containsUnknownFVars? mVar b
-| Expr.forallE _ t b _ => containsUnknownFVars? mVar t <|> containsUnknownFVars? mVar b
-| Expr.letE _ e t b _ => containsUnknownFVars? mVar e <|> containsUnknownFVars? mVar t 
-                                                      <|> containsUnknownFVars? mVar b
+| Expr.app f e _ => containsUnknownFVars? mVar f <||> containsUnknownFVars? mVar e
+| Expr.lam _ t b _ => containsUnknownFVars? mVar t <||> containsUnknownFVars? mVar b
+| Expr.forallE _ t b _ => containsUnknownFVars? mVar t <||> containsUnknownFVars? mVar b
+| Expr.letE _ e t b _ => containsUnknownFVars? mVar e <||> containsUnknownFVars? mVar t 
+                                                      <||> containsUnknownFVars? mVar b
 | Expr.mdata _ e _ => containsUnknownFVars? mVar e
 | Expr.proj _ _ e _ => containsUnknownFVars? mVar e
 | _ => false
@@ -76,6 +76,9 @@ def clarifyIndex (mVar : MVarId) (fVar : FVarId) (i : Nat := 0) : MetaM (Option 
       -- First cases run to determine the lhs of the equation
       let substResult ← try substituteWithCasesOn mVar fVar rhs
                         catch _ => throwTacticEx `clarifyIndices mVar "unknown free variables in substitution result"
+      -- TODO: Instead of rejecting here, we should, instead of an equality, prove an existential containing the new free vars
+      if ← containsUnknownFVars? mVar substResult then
+        throwTacticEx `clarifyIndices mVar "unknown free variables in substitution result"
       assignExprMVar lhs.mvarId! substResult
       -- Second cases run to actually prove the equality
       let eqType ← mkEq lhs rhs
@@ -99,7 +102,6 @@ def clarifyIndex (mVar : MVarId) (fVar : FVarId) (i : Nat := 0) : MetaM (Option 
         let mVar' ← eqCases[0].mvarId
         withMVarContext mVar' do
           let eqFVar := eqCases[0].subst.apply $ mkFVar eqFVar
-          --if i > 1 then throwTacticEx `clarifyIndices mVar' $ eqFVar
           let mVar' ← if eqFVar.isFVar then clear mVar' eqFVar.fvarId! else mVar'
           return (eqCases[0].subst, mVar')
 
@@ -137,7 +139,7 @@ syntax (name := clarifyIndices) "clarifyIndices" (colGt ident)+ : tactic
 end Lean
 
 -- Examples
-namespace ClarifyIndicesExamples
+/-namespace ClarifyIndicesExamples
 
 inductive Foo : (n : Nat) → Fin n → Prop
 | mk1 : Foo 5 0
@@ -187,4 +189,4 @@ def baar (x : Nat) (p : Fooo x 0) (A : Type) (a : Fooo (2 + 3) 0 → A) : A := b
   skip
 
 
-end ClarifyIndicesExamples
+end ClarifyIndicesExamples-/
