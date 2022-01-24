@@ -21,6 +21,21 @@ match s with
 
 end
 
+def containsUnknownFVars? (mVar : MVarId) (e : Expr) : MetaM Bool :=
+match e with
+| Expr.fvar v d => withMVarContext mVar do
+  match ← findLocalDecl? v with
+  | some _ => false
+  | none   => true
+| Expr.app f e _ => containsUnknownFVars? mVar f <|> containsUnknownFVars? mVar e
+| Expr.lam _ t b _ => containsUnknownFVars? mVar t <|> containsUnknownFVars? mVar b
+| Expr.forallE _ t b _ => containsUnknownFVars? mVar t <|> containsUnknownFVars? mVar b
+| Expr.letE _ e t b _ => containsUnknownFVars? mVar e <|> containsUnknownFVars? mVar t 
+                                                      <|> containsUnknownFVars? mVar b
+| Expr.mdata _ e _ => containsUnknownFVars? mVar e
+| Expr.proj _ _ e _ => containsUnknownFVars? mVar e
+| _ => false
+
 def substituteWithCasesOn (mVar : MVarId) (fVar : FVarId) (e : Expr) : MetaM Expr :=
 withMVarContext mVar do
   let eqSubgoals ← cases (← mkFreshExprMVar $ mkConst `True).mvarId! fVar
@@ -59,7 +74,9 @@ def clarifyIndex (mVar : MVarId) (fVar : FVarId) (i : Nat := 0) : MetaM (Option 
       unless rhs.isFVar do return (FVarSubst.empty, mVar) --consider failing instead
       let lhs ← mkFreshExprMVar $ ← inferType rhs
       -- First cases run to determine the lhs of the equation
-      assignExprMVar lhs.mvarId! $ ← substituteWithCasesOn mVar fVar rhs
+      let substResult ← try substituteWithCasesOn mVar fVar rhs
+                        catch _ => throwTacticEx `clarifyIndices mVar "unknown free variables in substitution result"
+      assignExprMVar lhs.mvarId! substResult
       -- Second cases run to actually prove the equality
       let eqType ← mkEq lhs rhs
       let eqMVar ← mkFreshExprMVar eqType
@@ -120,6 +137,8 @@ syntax (name := clarifyIndices) "clarifyIndices" (colGt ident)+ : tactic
 end Lean
 
 -- Examples
+namespace ClarifyIndicesExamples
+
 inductive Foo : (n : Nat) → Fin n → Prop
 | mk1 : Foo 5 0
 | mk2 : Foo 8 3
@@ -159,3 +178,13 @@ def bar4 (m n : Nat) (p : Foo''' m n true) : Foo''' m m true := by
   clarifyIndices p
   exact p
 
+inductive Fooo : (n l : Nat) → Prop
+| mk1 : (x y : Nat) → Fooo (x + y) 0
+| mk2 : Fooo 8 3
+
+def baar (x : Nat) (p : Fooo x 0) (A : Type) (a : Fooo (2 + 3) 0 → A) : A := by
+  clarifyIndices p
+  skip
+
+
+end ClarifyIndicesExamples
