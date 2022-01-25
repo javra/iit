@@ -34,7 +34,7 @@ inductive Con_w : Conₑ → Prop
 
 inductive Ty_w : Conₑ → Tyₑ → Prop
 | base_w : ∀ {Γ}, Con_w Γ → Ty_w Γ (baseₑ Γ)
-| wk_w : ∀ {Γ}, Con_w Γ → ∀ {A}, Ty_w Γ A → ∀ {B}, Ty_w Γ B → Ty_w Γ (wkₑ Γ A B)
+| wk_w : ∀ {Γ}, Con_w Γ → ∀ {A}, Ty_w Γ A → ∀ {B}, Ty_w Γ B → Ty_w (extₑ Γ A) (wkₑ Γ A B)
 end
 
 open Con_w Ty_w
@@ -45,29 +45,29 @@ def Ty := fun (Γ : Con) => PSigma (Ty_w Γ.1)
 def nil : Con                                         := ⟨nilₑ,            nil_w⟩
 def ext (Γ : Con) (A : Ty Γ) : Con                    := ⟨extₑ Γ.1 A.1,    ext_w Γ.2 A.2⟩ 
 def base (Γ : Con) : Ty Γ                             := ⟨baseₑ Γ.1,       base_w Γ.2⟩
-def wk (Γ : Con) (A B : Ty Γ) : Ty Γ                  := ⟨wkₑ Γ.1 A.1 B.1, wk_w Γ.2 A.2 B.2⟩ 
+def wk (Γ : Con) (A B : Ty Γ) : Ty (ext Γ A)          := ⟨wkₑ Γ.1 A.1 B.1, wk_w Γ.2 A.2 B.2⟩ 
 
 section
 variable
-  (Conₘ  : Con → Sort _)
-  (Tyₘ   : ∀ {Γ}, Conₘ Γ → Ty Γ → Sort)
+  (Conₘ  : Con → Type)
+  (Tyₘ   : ∀ {Γ}, Conₘ Γ → Ty Γ → Type)
   (nilₘ  : Conₘ nil)
   (extₘ  : ∀ {Γ} (Γₘ : Conₘ Γ) {A}, Tyₘ Γₘ A → Conₘ (ext Γ A))
   (baseₘ : ∀ {Γ} (Γₘ : Conₘ Γ), Tyₘ Γₘ (base Γ))
-  (wkₘ   : ∀ {Γ} (Γₘ : Conₘ Γ) {A} (Aₘ : Tyₘ Γₘ A) {B} (Bₘ : Tyₘ Γₘ B), Tyₘ Γₘ (wk Γ A B))
+  (wkₘ   : ∀ {Γ} (Γₘ : Conₘ Γ) {A} (Aₘ : Tyₘ Γₘ A) {B} (Bₘ : Tyₘ Γₘ B), Tyₘ (extₘ Γₘ Aₘ) (wk Γ A B))
 
 mutual
-inductive Conᵣ : (Γ : Con) → Conₘ Γ → Prop
+inductive Conᵣ : (Γ : Con) → Conₘ Γ → Type
 | nilᵣ : Conᵣ nil nilₘ
 | extᵣ : ∀ {Γ} {Γₘ : Conₘ Γ}, Conᵣ Γ Γₘ →
            ∀ {A} {Aₘ : Tyₘ Γₘ A}, Tyᵣ Γₘ A Aₘ → Conᵣ (ext Γ A) (extₘ Γₘ Aₘ)
 
-inductive Tyᵣ : {Γ : Con} → (Γₘ : Conₘ Γ) → (A : Ty Γ) → Tyₘ Γₘ A → Prop
+inductive Tyᵣ : {Γ : Con} → (Γₘ : Conₘ Γ) → (A : Ty Γ) → Tyₘ Γₘ A → Type
 | baseᵣ: ∀ {Γ} {Γₘ : Conₘ Γ}, Conᵣ Γ Γₘ → Tyᵣ Γₘ (base Γ) (baseₘ Γₘ)
 | wkᵣ: ∀ {Γ} {Γₘ : Conₘ Γ}, Conᵣ Γ Γₘ →
          ∀ {A} {Aₘ : Tyₘ Γₘ A}, Tyᵣ Γₘ A Aₘ →
            ∀ {B} {Bₘ : Tyₘ Γₘ B}, Tyᵣ Γₘ B Bₘ →
-             Tyᵣ Γₘ (wk Γ A B) (wkₘ Γₘ Aₘ Bₘ)
+             Tyᵣ (extₘ Γₘ Aₘ) (wk Γ A B) (wkₘ Γₘ Aₘ Bₘ)
 end
 
 open Conᵣ Tyᵣ
@@ -95,9 +95,9 @@ noncomputable def Con_tot (Γ : Con) : PSigma (Conᵣ Conₘ Tyₘ nilₘ extₘ
     simp only at ctor_w
     clarifyIndices ctor_w
     inversion ctor_w with Δ_w A_w B_w
-    cases A_ih Δ'ᵣ A_w with | mk Aₘ Aᵣ => ?_
-    cases B_ih Δ'ᵣ B_w with | mk Bₘ Bᵣ => ?_
-    exact PSigma.mk (wkₘ Δ'ₘ Aₘ Bₘ) (wkᵣ Δ'ᵣ Aᵣ Bᵣ)
+    cases Δ'ᵣ with | @extᵣ Γ' Γ'ₘ Γ'ᵣ A' A'ₘ A'ᵣ => ?_
+    cases B_ih Γ'ᵣ B_w with | mk Bₘ Bᵣ => ?_
+    exact PSigma.mk (wkₘ Γ'ₘ A'ₘ Bₘ) (wkᵣ Γ'ᵣ A'ᵣ Bᵣ)
     
 noncomputable def Ty_tot (Γ : Con) (A : Ty Γ) :
   PSigma (Tyᵣ Conₘ Tyₘ nilₘ extₘ baseₘ wkₘ (Con_tot Conₘ Tyₘ nilₘ extₘ baseₘ wkₘ Γ).1 A) := by
@@ -124,15 +124,15 @@ noncomputable def Ty_tot (Γ : Con) (A : Ty Γ) :
     simp only at ctor_w
     clarifyIndices ctor_w
     inversion ctor_w with Δ_w A_w B_w
-    cases A_ih Δ'ᵣ A_w with | mk Aₘ Aᵣ => ?_
-    cases B_ih Δ'ᵣ B_w with | mk Bₘ Bᵣ => ?_
-    exact PSigma.mk (wkₘ Δ'ₘ Aₘ Bₘ) (wkᵣ Δ'ᵣ Aᵣ Bᵣ)
+    cases Δ'ᵣ with | @extᵣ Γ' Γ'ₘ Γ'ᵣ A' A'ₘ A'ᵣ => ?_
+    cases B_ih Γ'ᵣ B_w with | mk Bₘ Bᵣ => ?_
+    exact PSigma.mk (wkₘ Γ'ₘ A'ₘ Bₘ) (wkᵣ Γ'ᵣ A'ᵣ Bᵣ)
   · exact (Con_tot Conₘ Tyₘ nilₘ extₘ baseₘ wkₘ ⟨Γₑ, Γ_w⟩).2
 
 noncomputable def Con.rec (Γ : Con) : Conₘ Γ :=
 (Con_tot Conₘ Tyₘ nilₘ extₘ baseₘ wkₘ Γ).1
 
-noncomputable def Ty.rec (Γ : Con) (A : Ty Γ) : Tyₘ (Con.rec Conₘ Tyₘ nilₘ extₘ baseₘ piₘ Γ) A :=
+noncomputable def Ty.rec (Γ : Con) (A : Ty Γ) : Tyₘ (Con.rec Conₘ Tyₘ nilₘ extₘ baseₘ wkₘ Γ) A :=
 (Ty_tot Conₘ Tyₘ nilₘ extₘ baseₘ wkₘ Γ A).1
 
 theorem nil_beta : Con.rec Conₘ Tyₘ nilₘ extₘ baseₘ wkₘ nil = nilₘ :=
@@ -149,8 +149,8 @@ theorem base_beta (Γ : Con) :
   = baseₘ (Con.rec Conₘ Tyₘ nilₘ extₘ baseₘ wkₘ Γ) :=
 rfl
 
-theorem pi_beta (Γ : Con) (A : Ty Γ) (B : Ty Γ) :
-  Ty.rec Conₘ Tyₘ nilₘ extₘ baseₘ wkₘ Γ (wk Γ A B)
+theorem wk_beta (Γ : Con) (A : Ty Γ) (B : Ty Γ) :
+  Ty.rec Conₘ Tyₘ nilₘ extₘ baseₘ wkₘ (ext Γ A) (wk Γ A B)
   = wkₘ (Con.rec Conₘ Tyₘ nilₘ extₘ baseₘ wkₘ Γ)
       (Ty.rec Conₘ Tyₘ nilₘ extₘ baseₘ wkₘ Γ A)
       (Ty.rec Conₘ Tyₘ nilₘ extₘ baseₘ wkₘ Γ B) :=
