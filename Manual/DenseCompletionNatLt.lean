@@ -65,13 +65,13 @@ variable
     → lt'ₘ (midₘ xₘ yₘ pₘ) yₘ (mid_r x y p))
 
 mutual
-inductive Aᵣ : (x : A) → Aₘ x → Prop
+inductive Aᵣ : (x : A) → Aₘ x → Type 1
 | ιᵣ : ∀ n, Aᵣ (ι n) (ιₘ n)
 | midᵣ : ∀ {x} {xₘ : Aₘ x}, Aᵣ x xₘ →
            ∀ {y} {yₘ : Aₘ y}, Aᵣ y yₘ →
              ∀ {p} {pₘ : lt'ₘ xₘ yₘ p}, lt'ᵣ xₘ yₘ p pₘ → Aᵣ (mid x y p) (midₘ xₘ yₘ pₘ)
 
-inductive lt'ᵣ : {x : A} → (xₘ : Aₘ x) → {y : A} → (yₘ : Aₘ y) → (p : lt' x y) → lt'ₘ xₘ yₘ p → Prop
+inductive lt'ᵣ : {x : A} → (xₘ : Aₘ x) → {y : A} → (yₘ : Aₘ y) → (p : lt' x y) → lt'ₘ xₘ yₘ p → Type 1
 | ι'ᵣ : ∀ m n p, lt'ᵣ (ιₘ m) (ιₘ n) (ι' m n p) (ι'ₘ m n p)
 | mid_lᵣ : ∀ {x} {xₘ : Aₘ x}, Aᵣ x xₘ →
              ∀ {y} {yₘ : Aₘ y}, Aᵣ y yₘ →
@@ -85,13 +85,65 @@ end
 
 open Aᵣ lt'ᵣ
 
-noncomputable def A_tot (x : A) : PSigma (Aᵣ Aₘ lt'ₘ ιₘ midₘ ι'ₘ mid_lₘ mid_rₘ x) := by
+structure PSigmaUnique {α : Type _} (β : α → Type _) :=
+  fst : α
+  snd : β fst
+  unique : ∀ {a}, β a → a = fst
+
+noncomputable def A_tot (x : A) : PSigmaUnique (Aᵣ Aₘ lt'ₘ ιₘ midₘ ι'ₘ mid_lₘ mid_rₘ x) := by
   cases x with | mk xₑ x_w => ?_
   apply Aₑ.recOn xₑ
-    (motive_1 := fun xₑ => ∀ x_w, PSigma (Aᵣ Aₘ lt'ₘ ιₘ midₘ ι'ₘ mid_lₘ mid_rₘ ⟨xₑ, x_w⟩))
+    (motive_1 := fun xₑ => ∀ x_w, PSigmaUnique (Aᵣ Aₘ lt'ₘ ιₘ midₘ ι'ₘ mid_lₘ mid_rₘ ⟨xₑ, x_w⟩))
     (motive_2 := fun pₑ => ∀ {x xₘ} (xᵣ : Aᵣ Aₘ lt'ₘ ιₘ midₘ ι'ₘ mid_lₘ mid_rₘ x xₘ)
-                  {y yₘ} (yᵣ : Aᵣ Aₘ lt'ₘ ιₘ midₘ ι'ₘ mid_lₘ mid_rₘ x xₘ)
-                   p_w, PSigma (lt'ᵣ Aₘ lt'ₘ ιₘ midₘ ι'ₘ mid_lₘ mid_rₘ xₘ yₘ ⟨pₑ, p_w⟩))
+                  {y yₘ} (yᵣ : Aᵣ Aₘ lt'ₘ ιₘ midₘ ι'ₘ mid_lₘ mid_rₘ y yₘ)
+                   p_w, PSigmaUnique (lt'ᵣ Aₘ lt'ₘ ιₘ midₘ ι'ₘ mid_lₘ mid_rₘ xₘ yₘ ⟨pₑ, p_w⟩))
+  skip
+  · intro n _
+    exact ⟨ιₘ n, ιᵣ n, fun {xₘ} xᵣ => by cases xᵣ; rfl⟩
+  · intro x y p x_ih y_ih p_ih ctor_w
+    inversion ctor_w with x_w y_w p_w
+    cases x_ih x_w with | mk xₘ xᵣ x_unique => ?_
+    cases y_ih y_w with | mk yₘ yᵣ y_unique => ?_
+    cases p_ih xᵣ yᵣ p_w with | mk pₘ pᵣ p_unique => ?_
+    exact ⟨midₘ xₘ yₘ pₘ, midᵣ xᵣ yᵣ pᵣ, fun {zₘ} zᵣ => by 
+      cases zᵣ with | @midᵣ x' x'ₘ x'ᵣ y' y'ₘ y'ᵣ p' p'ₘ p'ᵣ => ?_
+      cases x_unique x'ᵣ
+      cases y_unique y'ᵣ
+      cases p_unique p'ᵣ
+      rfl ⟩
+  · intro m n p x xₘ xᵣ y yₘ yᵣ ctor_w
+    cases x with | mk xₑ x_w => ?_
+    cases y with | mk yₑ y_w => ?_
+    simp only at ctor_w
+    clarifyIndices ctor_w
+    cases xᵣ
+    cases yᵣ
+    exact ⟨ι'ₘ m n p, ι'ᵣ m n p, fun {qₘ} qᵣ => by
+      cases qᵣ
+      rfl ⟩
+  · intro yₑ zₑ pₑ y_ih z_ih p_ih x' x'ₘ x'ᵣ y' y'ₘ y'ᵣ ctor_w
+    cases x' with | mk x'ₑ x'_w => ?_
+    cases y' with | mk y'ₑ y'_w => ?_
+    simp only at ctor_w
+    clarifyIndices ctor_w
+    cases y'ᵣ with | @midᵣ x'' x''ₘ x''ᵣ y'' y''ₘ y''ᵣ p'' p''ₘ p''ᵣ => ?_
+    simp only at ctor_w
+    cases x'' with | mk x''ₑ x''_w => ?_
+    cases y'' with | mk y''ₑ y''_w => ?_
+    cases p'' with | mk p''ₑ p''_w => ?_
+    clarifyIndices ctor_w
+    simp only at ctor_w
+    cases y_ih x''_w with | mk x'''ₘ x'''ᵣ x'''_unique => ?_
+    cases z_ih y''_w with | mk y'''ₘ y'''ᵣ y'''_unique => ?_
+    cases p_ih x'''ᵣ y'''ᵣ p''_w with | mk p'''ₘ p'''ᵣ p'''_unique => ?_
+    simp only at *
+    cases x'''_unique x'ᵣ
+    cases x'''_unique x''ᵣ
+    cases y'''_unique y''ᵣ
+    cases p'''_unique p''ᵣ
+    exact ⟨mid_lₘ _ _ _, mid_lᵣ x''ᵣ y''ᵣ p''ᵣ, fun {qₘ} qᵣ => by
+      match qᵣ with
+      | mid_lᵣ x'''ᵣ y'''ᵣ p'''ᵣ => skip ⟩
   
     
 noncomputable def Ty_tot (Γ : Con) (A : Ty Γ) :
