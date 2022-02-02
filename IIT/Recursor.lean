@@ -7,7 +7,7 @@ open Lean
 open Elab
 open Command
 open Meta
-open Expr
+open Lean.Expr
 open Array
 open Tactic
 

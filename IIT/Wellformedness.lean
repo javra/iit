@@ -7,10 +7,10 @@ import IIT.Erasure
 import IIT.Util
 
 open Lean
+open Lean.Expr
 open Elab
 open Command
 open Meta
-open Expr
 open Array
 
 namespace IIT
