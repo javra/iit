@@ -1,1 +1,3 @@
 *.lean~
+/build
+/lean_packages
