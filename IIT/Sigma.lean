@@ -32,7 +32,7 @@ def sigmaCtorTmS (e : Expr) (eref wref : Expr) : TermElabM Expr := do
 match e with
 | app f _ _   => sigmaCtorTmS f eref wref
 | const _ _ _ => mkPair eref wref
-| _           => e
+| _           => return e
 
 def sigmaCtor (ctorName : Name) (e : Expr)
  (eref : Expr := mkConst $ ctorName ++ erasureSuffix)
@@ -42,18 +42,18 @@ match e with
   match headerAppIdx? its t with
   | some _ => let eref := mkApp (liftBVarsOne eref) $ mkFst $ mkBVar 0
               let wref := mkApp (mkApp (liftLooseBVars wref 0 1) (mkFst (mkBVar 0))) (mkSnd (mkBVar 0))
-              mkLambda n e.binderInfo t $
+              return mkLambda n e.binderInfo t $
                ← sigmaCtor ctorName b eref wref
   | none   => let eref := mkApp (liftBVarsOne eref) (mkBVar 0)
               let wref := mkApp (liftBVarsOne wref) (mkBVar 0)
-              mkLambda n e.binderInfo t $
+              return mkLambda n e.binderInfo t $
               ← sigmaCtor ctorName b eref wref
 | _ => sigmaCtorTmS e eref wref --"El" Case
 
 partial def sigmaDecls (i : Nat := 0) (hDecls ctorDecls : List Declaration := []) :
  TermElabM $ List Declaration :=
 if i >= its.length then return hDecls ++ ctorDecls else do
-  let hr ← sigmaHeader its eits wits i
+  let hr := sigmaHeader its eits wits i
   let it := its.get! i
   let type := it.type
   let ctors ← it.ctors.mapM fun ctor => do

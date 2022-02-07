@@ -25,8 +25,8 @@ def containsUnknownFVars? (mVar : MVarId) (e : Expr) : MetaM Bool :=
 match e with
 | Expr.fvar v d => withMVarContext mVar do
   match ← findLocalDecl? v with
-  | some _ => false
-  | none   => true
+  | some _ => return false
+  | none   => return true
 | Expr.app f e _ => containsUnknownFVars? mVar f <||> containsUnknownFVars? mVar e
 | Expr.lam _ t b _ => containsUnknownFVars? mVar t <||> containsUnknownFVars? mVar b
 | Expr.forallE _ t b _ => containsUnknownFVars? mVar t <||> containsUnknownFVars? mVar b
@@ -34,7 +34,7 @@ match e with
                                                       <||> containsUnknownFVars? mVar b
 | Expr.mdata _ e _ => containsUnknownFVars? mVar e
 | Expr.proj _ _ e _ => containsUnknownFVars? mVar e
-| _ => false
+| _ => return false
 
 def substituteWithCasesOn (mVar : MVarId) (fVar : FVarId) (e : Expr) : MetaM Expr :=
 withMVarContext mVar do
@@ -70,7 +70,7 @@ def clarifyIndex (mVar : MVarId) (fVar : FVarId) (i : Nat := 0) : MetaM (Option 
     let failEx := fun _ => throwTacticEx `clarifyIndices mVar "inductive type expected"
     type.withApp fun f args => matchConstInduct f failEx fun val _ => do
       unless val.numParams + i < args.size do throwTacticEx `clarifyIndices mVar "not enough indices"
-      let rhs ← args.get! (val.numParams + i)
+      let rhs := args.get! (val.numParams + i)
       unless rhs.isFVar do return (FVarSubst.empty, mVar) --consider failing instead
       let lhs ← mkFreshExprMVar $ ← inferType rhs
       -- First cases run to determine the lhs of the equation
@@ -99,10 +99,10 @@ def clarifyIndex (mVar : MVarId) (fVar : FVarId) (i : Nat := 0) : MetaM (Option 
         -- Apply cases on the equality
         let eqCases ← cases bodyMVar eqFVar
         unless eqCases.size == 1 do throwTacticEx `clarifyIndices bodyMVar "could not apply cases on resulting equality"
-        let mVar' ← eqCases[0].mvarId
+        let mVar' := eqCases[0].mvarId
         withMVarContext mVar' do
           let eqFVar := eqCases[0].subst.apply $ mkFVar eqFVar
-          let mVar' ← if eqFVar.isFVar then clear mVar' eqFVar.fvarId! else mVar'
+          let mVar' ← try clear mVar' eqFVar.fvarId! catch _ => pure mVar'
           return (eqCases[0].subst, mVar')
 
 def clarifyIndicesTac (mVar : MVarId) (fVar : FVarId) : MetaM (Option $ FVarSubst × MVarId) :=

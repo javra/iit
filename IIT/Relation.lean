@@ -59,12 +59,12 @@ match e with
                let em := appArg! em
                let f_type := bindingDomain! $ ← inferType f
                match headerAppIdx? its f_type with
-               | some _ => mkApp (mkApp (← methodTmP f fm) e) (← methodTmP e em)
-               | none   => mkApp (← methodTmP f fm) e
+               | some _ => return mkApp (mkApp (← methodTmP f fm) e) (← methodTmP e em)
+               | none   => return mkApp (← methodTmP f fm) e
 | _           =>
   match ctorAppIdx? its em with
-  | some (i, j) => methods[i][j]
-  | none        => em
+  | some (i, j) => return methods[i][j]
+  | none        => return em
 
 def methodTmS (e : Expr) (em : Expr) : MetaM Expr := do
 match e with
@@ -74,13 +74,13 @@ match e with
   let f_type := bindingDomain! $ ← inferType f
   match headerAppIdx? its f_type with --TODO is this too shaky?
   | some _ => let methodFn ← methodTmS f fm
-              mkApp (mkApp methodFn e) (← methodTmP its methods e em)
-  | none   => mkApp (← methodTmS f fm) e
+              return mkApp (mkApp methodFn e) (← methodTmP its methods e em)
+  | none   => return mkApp (← methodTmS f fm) e
 | const n l d =>
   match headerAppIdx? its e with
-  | some j => motives[j]
-  | none   => e
-| _ => e
+  | some j => return motives[j]
+  | none   => return e
+| _ => return e
 
 partial def method (name : Name) (e : Expr) (em : Expr := e) (ref := mkConst name) : MetaM Expr := do
 match e with
@@ -89,15 +89,15 @@ match e with
   | some j => let ref := mkApp (liftBVarsTwo ref) $ mkBVar 1
               let t' := liftBVarsOne t
               let b' := liftBVarsOne b
-              mkForall n BinderInfo.implicit t $
+              return mkForall n BinderInfo.implicit t $
               mkForall (n ++ "m") e.binderInfo
                 (mkApp (← methodTmS its methods motives t' t) $ mkBVar 0) $
                 (← method name b' b ref)
   | none   => let ref := mkApp (liftBVarsOne ref) $ mkBVar 0
               --The placeholders for external arguments should never appear in the output
               let b' := liftBVarsOne $ (bindingBody! em).instantiate1 $ mkConst "EXT"
-              mkForall n e.binderInfo t $ ← method name b b' ref
-| _ => mkApp (← methodTmS its methods motives e em) ref
+              return mkForall n e.binderInfo t $ ← method name b b' ref
+| _ => return mkApp (← methodTmS its methods motives e em) ref
 
 end
 
@@ -181,11 +181,11 @@ match e with
   let f_type := bindingDomain! $ ← inferType f
   match headerAppIdx? its f_type with --TODO check if `f_arg` is a ctor app
   | some _ => let t := mkApp (← elimRelationCtorTmS f fm) e
-              mkApp t $ ← methodTmP its methods e em
-  | none   => mkApp (← elimRelationCtorTmS f fm) e
+              return mkApp t $ ← methodTmP its methods e em
+  | none   => return mkApp (← elimRelationCtorTmS f fm) e
 | const n l _ => let t := addRIfHeader its n l
-                 mkAppN t (motives ++ methods.concat)
-| _ => e
+                 return mkAppN t (motives ++ methods.concat)
+| _ => return e
 
 partial def elimRelationCtor (e sref dref : Expr) (em := e) : MetaM Expr := do
 match e with
@@ -197,19 +197,19 @@ match e with
               let tr := mkApp (mkApp tr (mkBVar 1)) (mkBVar 0)
               let sref := mkApp (liftBVarsThree sref) $ mkBVar 2
               let dref := mkApp (mkApp (liftBVarsThree dref) $ mkBVar 2) $ mkBVar 1
-              mkForall n BinderInfo.implicit t $ -- syntax
+              return mkForall n BinderInfo.implicit t $ -- syntax
               mkForall (n ++ methodSuffix) BinderInfo.implicit td $ -- method
               mkForall (n ++ relationSuffix) BinderInfo.default tr $ -- relation
               ← elimRelationCtor (liftBVarsTwo b) sref dref (liftBVarsOne b)
   | none   => let sref := mkApp (liftBVarsOne sref) $ mkBVar 0
               let dref := mkApp (liftBVarsOne dref) $ mkBVar 0
-              mkForall n e.binderInfo t $
+              return mkForall n e.binderInfo t $
               ← elimRelationCtor b sref dref b
 | _ => let e ← elimRelationCtorTmS its motives methods e em
-       mkApp (mkApp e sref) dref
+       return mkApp (mkApp e sref) dref
 
 private partial def elimRelationAux (i : Nat) (j : Nat := 0) (rctors : List Constructor := []) : MetaM $ List Constructor :=
-if j >= (its.get! i).ctors.length then rctors else do
+if j >= (its.get! i).ctors.length then return rctors else do
 let ctor := (its.get! i).ctors.get! j
 let type ← elimRelationCtor its motives methods ctor.type (mkConst ctor.name) methods[i][j]
 let type ← mkForallFVars (motives ++ methods.concat) type
@@ -217,7 +217,7 @@ elimRelationAux i (j + 1) $ rctors.append [{ name := ctor.name ++ relationSuffix
                                              type := type : Constructor }]
 
 partial def elimRelation (its : List InductiveType) (i : Nat := 0) (rits : List InductiveType := []) : MetaM $ List InductiveType :=
-if i >= its.length then rits else do
+if i >= its.length then return rits else do
 let it := its.get! i
 let type := elimRelationHeader its motives (its.get! i).type (mkConst (its.get! i).name) motives[i]
 let motivesAndMethods := motives ++ methods.concat

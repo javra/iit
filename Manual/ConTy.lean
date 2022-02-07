@@ -72,8 +72,7 @@ noncomputable def Con_tot (Γ : Con) : PSigma (Conᵣ Conₘ Tyₘ nilₘ extₘ
     cases Δ_ih Δ_w with | mk Δₘ Δᵣ => ?_
     cases A_ih Δᵣ A_w with | mk Aₘ Aᵣ => ?_
     exact PSigma.mk (extₘ Δₘ Aₘ) (extᵣ Δᵣ Aᵣ)
-  · intro Γₑ Γ_ih ⟨Δₑ, Δ_w⟩ --Δₘ Δᵣ ctor_w
-    
+  · intro Γₑ Γ_ih Δ Δₘ Δᵣ ctor_w
     cases Δ with | mk Δₑ Δ_w => ?_
     simp only at ctor_w
     clarifyIndices ctor_w

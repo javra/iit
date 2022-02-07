@@ -24,10 +24,10 @@ else mkConst n l
 
 partial def recTypeTmS (e : Expr) : MetaM Expr := do
 match e with
-| app f e _ => mkApp (←recTypeTmS f) e
+| app f e _ => return mkApp (←recTypeTmS f) e
 | const n l _ => let t := addRecIfHeader its n l
-                 mkAppN t (motives ++ methods.concat)
-| _ => e --TODO
+                 return mkAppN t (motives ++ methods.concat)
+| _ => return e --TODO
 
 partial def recType (l : Level) (e sref dref : Expr) : MetaM Expr := do
 match e with
@@ -37,19 +37,19 @@ match e with
               let trec ← recTypeTmS its motives methods (liftBVarsOne t)
               let trec := mkApp trec $ mkBVar 0
               let dref := mkApp2 (liftBVarsOne dref) (mkBVar 0) trec
-              mkForall n e.binderInfo t $
+              return mkForall n e.binderInfo t $
               ← recType l b sref dref
   | none   => let sref := mkApp (liftBVarsOne sref) $ mkBVar 0
               let dref := mkApp (liftBVarsOne dref) $ mkBVar 0
-              mkForall n e.binderInfo t $
+              return mkForall n e.binderInfo t $
               ← recType l b sref dref
 | sort l _ => let dref := liftBVarsOne dref
-              mkForall "s" BinderInfo.default sref $
+              return mkForall "s" BinderInfo.default sref $
               mkApp dref $ mkBVar 0
-| _ => e
+| _ => return e
 
 partial def recTypes (i : Nat := 0) (rTypes : List Expr := []) : MetaM $ List Expr :=
-if i >= its.length then rTypes else do
+if i >= its.length then return rTypes else do
 let name := (its.get! i).name
 let type := (its.get! i).type
 let recType ← recType its motives methods (ls.get! i) type (mkConst name) motives[i]
@@ -62,11 +62,11 @@ else mkConst n l
 
 private partial def recVal_motiveRelRef (e etot : Expr) : MetaM Expr := do
 match e with
-| app f e _ => let e' ← etot.appArg! --need the _type_ of `e` instead
-               mkAppN (←recVal_motiveRelRef f etot.appFn!) #[e, mkFst e', mkSnd e']
+| app f e _ => let e' := etot.appArg! --need the _type_ of `e` instead
+               return mkAppN (←recVal_motiveRelRef f etot.appFn!) #[e, mkFst e', mkSnd e']
 | const n l _ => let t := addTotIfHeader its n l
-                 mkAppN t (motives ++ methods.concat)
-| _ => e
+                 return mkAppN t (motives ++ methods.concat)
+| _ => return e
 
 -- Invariant: `recVal l e sref dref` should be of type `recType l e sref dref`.
 partial def recVal (l : Level) (e etot sref tref : Expr) : MetaM Expr := do
@@ -79,20 +79,20 @@ match e with
               let tref := mkAppN (liftBVarsOne tref) #[mkBVar 0, mkFst mrref, mkSnd mrref]
               -- need a version of `b` where bvars are replaced with calls to `*.tot ...`
               let btot := (etot.bindingBody!).instantiate1 mrref
-              mkLambda n e.binderInfo t $
+              return mkLambda n e.binderInfo t $
               ← recVal l b btot sref tref
   | none   => let sref := mkApp (liftBVarsOne sref) (mkBVar 0)
               let tref := mkApp (liftBVarsOne tref) (mkBVar 0)
               let btot := etot.bindingBody!
-              mkLambda n e.binderInfo t $
+              return mkLambda n e.binderInfo t $
               ← recVal l b btot sref tref
 | sort l _ => let tref := mkApp (liftBVarsOne tref) (mkBVar 0)
-              mkLambda "s" BinderInfo.default sref $
+              return mkLambda "s" BinderInfo.default sref $
               mkFst tref
-| _ => e
+| _ => return e
 
 partial def recVals (i : Nat := 0) (rVals : List Expr := []) : MetaM $ List Expr :=
-if i >= its.length then rVals else do
+if i >= its.length then return rVals else do
 let name := (its.get! i).name
 let type := (its.get! i).type
 let tref := mkAppN (mkConst (name ++ "tot")) (motives ++ methods.concat)

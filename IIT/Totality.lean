@@ -31,23 +31,23 @@ match e with
               let sref := mkApp (liftBVarsThree sref) $ mkBVar 2
               let dref := mkApp (mkApp (liftBVarsThree dref) $ mkBVar 2) $ mkBVar 1
               let rref := mkApp (mkApp (liftBVarsThree rref) $ mkBVar 2) $ mkBVar 1
-              mkForall n e.binderInfo t $
+              return mkForall n e.binderInfo t $
               mkForall (n ++ motiveSuffix) BinderInfo.implicit tm $
               mkForall (n ++ relationSuffix) BinderInfo.default tr $
               ← totalityType l (liftBVarsTwo b) sref dref rref
   | none   => let sref := mkApp (liftBVarsOne sref) $ mkBVar 0
               let dref := mkApp (liftBVarsOne dref) $ mkBVar 0
               let rref := mkApp (liftBVarsOne rref) $ mkBVar 0
-              mkForall n e.binderInfo t $
+              return mkForall n e.binderInfo t $
               ← totalityType l b sref dref rref
 | sort l _  => let dref := liftBVarsOne dref
                let rref := liftBVarsOne rref
-               mkForall "s" BinderInfo.default sref $
+               return mkForall "s" BinderInfo.default sref $
                mkSigma l (mkApp dref $ mkBVar 0) (mkApp rref $ mkBVar 0)
-| _ => e
+| _ => return e
 
 partial def totalityTypes (i : Nat := 0) (totTypes : List Expr := []) : MetaM $ List Expr :=
-if i >= its.length then totTypes else do
+if i >= its.length then return totTypes else do
 let name := (its.get! i).name
 let type := (its.get! i).type
 let rref := mkAppN (mkConst $ name ++ relationSuffix) (motives ++ methods.concat)
@@ -69,7 +69,7 @@ def foo (e : Expr) : MetaM Expr := do
 match e with
 | forallE n t b _ => let m ← mkPair t b
                      return m
-| _ => e
+| _ => return e
 
 private partial def totalityRecMotiveAux (e : Expr) 
   (wref rref : Expr) (mainE : Expr) (em er : Expr := e) : MetaM Expr := do
@@ -92,7 +92,7 @@ match e with
             let rref := mkApp (liftBVarsOne rref) (mkBVar 0)
             let bm   := bindingBody! em
             let br   := bindingBody! er
-            mkForall n e.binderInfo t $
+            return mkForall n e.binderInfo t $
              ← totalityRecMotiveAux b wref rref mainE bm br
 | _ => let w := mkApp wref mainE
        mkForallM "mainw" BinderInfo.default w fun mainw => do
@@ -202,7 +202,7 @@ match e with
 private def collectCtorIndices (e : Expr) : MetaM (Array Expr) := --TODO replace this by a simple call to some Expr def
 match e with
 | forallE _ _ b _ => collectCtorIndices b
-| _ => collectCtorIndicesTmS its e
+| _ => return collectCtorIndicesTmS its e
 
 private partial def mkEqs (lhs rhs : Array Expr) : MetaM (Array Expr) := do
   let lr := Array.zip lhs rhs
@@ -242,19 +242,19 @@ def appAssumption (f : Expr) : MetaM Expr := do
 
 def mkMethodAppArgTmP (type : Expr) (ctorIHs : Array Expr) : MetaM Expr := do
 match ctorAppIdx? its type with
-| none => type
+| none => return type
 | some _ =>
   match type with
-  | app f e _   => mkApp (← mkMethodAppArgTmP f ctorIHs) e --- call some ctorIH instead of having `e` here in case of it being a loose bvar :ugly:
-  | const n _ _ => mkAppN (mkConst (n ++ relationSuffix)) (motives ++ methods.concat)
-  | _ => type
+  | app f e _   => return mkApp (← mkMethodAppArgTmP f ctorIHs) e --- call some ctorIH instead of having `e` here in case of it being a loose bvar :ugly:
+  | const n _ _ => return mkAppN (mkConst (n ++ relationSuffix)) (motives ++ methods.concat)
+  | _ => return type
 
 def mkMethodAppArg (type : Expr) (ctorIHs : Array Expr) : MetaM Expr := do
 match type with
 | app f e _ => let e := mkSnd $ e --← mkMethodAppArgTmP its motives methods e ctorIHs
                trace[Meta.appBuilder] ← ctorIHs.mapM fun c => inferType c
                mkAppM' (← mkMethodAppArg f ctorIHs) #[e]
-| _         => ctorIHs[0]
+| _         => return ctorIHs[0]
 
 partial def mkMethodApp (ctorType methodRef : Expr) (ctorIHs : Array Expr): MetaM Expr := do
 match ctorType with
@@ -262,13 +262,13 @@ match ctorType with
   match headerAppIdx? its t with
   | some _ => let arg ← mkMethodAppArg t ctorIHs
               let arg ← appAssumption arg
-              let b' ← instantiate1 b arg
-              let arg1 ← mkFst $ arg
+              let b' := instantiate1 b arg
+              let arg1 := mkFst $ arg
               let methodRef ← mkAppM' methodRef #[arg1]
               return ← mkMethodApp b' methodRef ctorIHs[1:]
   | none   => let b' ← mkMethodApp b methodRef ctorIHs
-              b' --mkAppM' b' #[_]
-| _ => methodRef
+              return b' --mkAppM' b' #[_]
+| _ =>return  methodRef
 
 def totalityModelTac (sIdx ctorIdx : Nat) (hdArgs : Array HeaderArg') (ctorIHs : Array FVarId)
   (subst : FVarSubst) (mVar : MVarId) :
@@ -280,17 +280,18 @@ withMVarContext mVar do
   let mut mVar := mVar
   let mut subst := subst
   for rFVar in rFVars do
-    let res ← try (clarifyIndicesTac mVar (subst.get rFVar).fvarId!) catch _ => pure none
-    --let res := none
+    let res ← try clarifyIndicesTac mVar (subst.get rFVar).fvarId!
+              catch _ => pure none
     match res with
-    | none            => ()
+    | none            => pure ()
     | some (s, mVar') => do
         subst := subst.append s
         mVar  := mVar'
+        pure ()
   let ctorIHs := ctorIHs.map fun ih => subst.get ih
   let mVars ← try apply mVar $ ← mkMethodApp its ctor.type methods[sIdx][ctorIdx] ctorIHs
               catch _ => try apply mVar methods[sIdx][ctorIdx]
-                         catch _ => [mVar]
+                         catch _ => pure [mVar]
   return (subst, mVars)
 
 partial def mkRelationApp (ctorType relationRef : Expr) (ctorIHs : Array Expr): MetaM Expr := do
@@ -299,13 +300,13 @@ match ctorType with
   match headerAppIdx? its t with
   | some _ => let arg ← mkMethodAppArg t ctorIHs
               let arg ← appAssumption arg
-              let b' ← instantiate1 b arg
-              let arg2 ← mkSnd $ arg
+              let b' := instantiate1 b arg
+              let arg2 := mkSnd $ arg
               let methodRef ← mkAppM' relationRef #[arg2]
               return ← mkRelationApp b' methodRef ctorIHs[1:]
   | none   => let b' ← mkRelationApp b relationRef ctorIHs
-              b' --mkAppM' b' #[_]
-| _ => relationRef
+              pure b'
+| _ => pure relationRef
 
 def totalityRelationTac (sIdx ctorIdx : Nat) (hdArgs : Array HeaderArg') (ctorIHs : Array FVarId)
   (subst : FVarSubst) (mVar : MVarId) :
@@ -319,7 +320,7 @@ withMVarContext mVar do
   for rFVar in rFVars do
     let res ← try (clarifyIndicesTac mVar (subst.get rFVar).fvarId!) catch _ => pure none
     match res with
-    | none            => ()
+    | none            => pure ()
     | some (s, mVar') => do
       subst := subst.append s
       mVar  := mVar'
@@ -332,7 +333,7 @@ withMVarContext mVar do
                          let relationApp ← mkRelationApp its ctor.type relationRef ctorIHs
                          trace[Meta.appBuilder] relationRef
                          try apply mVar relationApp
-                         catch _ => [mVar]
+                         catch _ => pure [mVar]
   return (subst, mVars)
 
 def totalityInnerTac (hIdx sIdx ctorIdx : Nat) (its : List InductiveType) (mVar : MVarId) :
