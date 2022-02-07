@@ -22,12 +22,10 @@ open Lean.Parser
 open Command
 
 -- The syntax looks exactly like the one of inductive types, without the presence of modifiers
-@[commandParser] def «iit» : Parser := 
-leading_parser "iit " >> declId >> declSig >> Lean.Parser.optional (":=" <|> "where")  >> many ctor
+syntax (name := «iit») "iit" declId declSig (":= " <|> "where")? ctor* : command
 
 -- The syntax for the totality proof opens a tactic environment
-@[commandParser] def «iit_termination» : Parser :=
-leading_parser:leadPrec "iit_termination " >> Tactic.tacticSeq
+syntax (name := «iit_termination») "iit_termination" Tactic.tacticSeq : command
 
 end Parser
 

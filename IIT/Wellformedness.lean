@@ -7,7 +7,7 @@ import IIT.Erasure
 import IIT.Util
 
 open Lean
-open Lean.Expr
+open Expr
 open Elab
 open Command
 open Meta
