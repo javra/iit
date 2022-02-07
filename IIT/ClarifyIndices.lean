@@ -99,10 +99,12 @@ def clarifyIndex (mVar : MVarId) (fVar : FVarId) (i : Nat := 0) : MetaM (Option 
         -- Apply cases on the equality
         let eqCases ← cases bodyMVar eqFVar
         unless eqCases.size == 1 do throwTacticEx `clarifyIndices bodyMVar "could not apply cases on resulting equality"
-        let mVar' := eqCases[0].mvarId
+        let mut mVar' := eqCases[0].mvarId
         withMVarContext mVar' do
           let eqFVar := eqCases[0].subst.apply $ mkFVar eqFVar
-          let mVar' ← try clear mVar' eqFVar.fvarId! catch _ => pure mVar'
+          let mut mVar' := mVar'
+          if let Expr.fvar id .. := eqFVar then
+            try mVar' ← clear mVar' id catch _ => pure ()
           return (eqCases[0].subst, mVar')
 
 def clarifyIndicesTac (mVar : MVarId) (fVar : FVarId) : MetaM (Option $ FVarSubst × MVarId) :=

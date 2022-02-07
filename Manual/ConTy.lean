@@ -66,25 +66,23 @@ noncomputable def Con_tot (Γ : Con) : PSigma (Conᵣ Conₘ Tyₘ nilₘ extₘ
     (motive_2 := fun Aₑ => ∀ {Γ Γₘ} (Γᵣ : Conᵣ Conₘ Tyₘ nilₘ extₘ baseₘ piₘ Γ Γₘ)
                    A_w, PSigma (Tyᵣ Conₘ Tyₘ nilₘ extₘ baseₘ piₘ Γₘ ⟨Aₑ, A_w⟩))
   · intro Γ_w
-    exact PSigma.mk nilₘ nilᵣ
+    exact ⟨nilₘ, nilᵣ⟩
   · intro Δₑ Aₑ Δ_ih A_ih ctor_w
     inversion ctor_w with Δ_w A_w
     cases Δ_ih Δ_w with | mk Δₘ Δᵣ => ?_
     cases A_ih Δᵣ A_w with | mk Aₘ Aᵣ => ?_
-    exact PSigma.mk (extₘ Δₘ Aₘ) (extᵣ Δᵣ Aᵣ)
-  · intro Γₑ Γ_ih Δ Δₘ Δᵣ ctor_w
-    cases Δ with | mk Δₑ Δ_w => ?_
+    exact ⟨extₘ Δₘ Aₘ, extᵣ Δᵣ Aᵣ⟩
+  · intro Γₑ Γ_ih ⟨Δₑ, Δ_w⟩ Δₘ Δᵣ ctor_w
     simp only at ctor_w
     clarifyIndices ctor_w
-    exact PSigma.mk (baseₘ Δₘ) (baseᵣ Δᵣ)
-  · intro Δₑ Aₑ Bₑ Δ_ih A_ih B_ih Δ' Δ'ₘ Δ'ᵣ ctor_w
-    cases Δ' with | mk Δ'ₑ Δ_w => ?_
+    exact ⟨baseₘ Δₘ, baseᵣ Δᵣ⟩
+  · intro Δₑ Aₑ Bₑ Δ_ih A_ih B_ih ⟨Δ'ₑ, Δ_w⟩ Δ'ₘ Δ'ᵣ ctor_w
     simp only at ctor_w
     clarifyIndices ctor_w
     inversion ctor_w with Δ_w A_w B_w
     cases A_ih Δ'ᵣ A_w with | mk Aₘ Aᵣ => ?_
     cases B_ih (extᵣ Δ'ᵣ Aᵣ) B_w with | mk Bₘ Bᵣ => ?_ 
-    exact PSigma.mk (piₘ Δ'ₘ Aₘ Bₘ) (piᵣ Δ'ᵣ Aᵣ Bᵣ)
+    exact ⟨piₘ Δ'ₘ Aₘ Bₘ, piᵣ Δ'ᵣ Aᵣ Bᵣ⟩
     
 noncomputable def Ty_tot (Γ : Con) (A : Ty Γ) :
   PSigma (Tyᵣ Conₘ Tyₘ nilₘ extₘ baseₘ piₘ (Con_tot Conₘ Tyₘ nilₘ extₘ baseₘ piₘ Γ).1 A) := by
@@ -95,25 +93,23 @@ noncomputable def Ty_tot (Γ : Con) (A : Ty Γ) :
     (motive_2 := fun Aₑ => ∀ {Γ Γₘ} (Γᵣ : Conᵣ Conₘ Tyₘ nilₘ extₘ baseₘ piₘ Γ Γₘ)
                    A_w, PSigma (Tyᵣ Conₘ Tyₘ nilₘ extₘ baseₘ piₘ Γₘ ⟨Aₑ, A_w⟩))
   · intro Γ_w
-    exact PSigma.mk nilₘ nilᵣ
+    exact ⟨nilₘ, nilᵣ⟩
   · intro Δₑ Aₑ Δ_ih A_ih ctor_w
     inversion ctor_w with Δ_w A_w
     cases Δ_ih Δ_w with | mk Δₘ Δᵣ => ?_
     cases A_ih Δᵣ A_w with | mk Aₘ Aᵣ => ?_
-    exact PSigma.mk (extₘ Δₘ Aₘ) (extᵣ Δᵣ Aᵣ)
-  · intro Γₑ Γ_ih Δ Δₘ Δᵣ ctor_w
-    cases Δ with | mk Δₑ Δ_w => ?_
+    exact ⟨extₘ Δₘ Aₘ, extᵣ Δᵣ Aᵣ⟩
+  · intro Γₑ Γ_ih ⟨Δₑ, Δ_w⟩ Δₘ Δᵣ ctor_w
     simp only at ctor_w
     clarifyIndices ctor_w
-    exact PSigma.mk (baseₘ Δₘ) (baseᵣ Δᵣ)
-  · intro Δₑ Aₑ Bₑ Δ_ih A_ih B_ih Δ' Δ'ₘ Δ'ᵣ ctor_w
-    cases Δ' with | mk Δ'ₑ Δ_w => ?_
+    exact ⟨baseₘ Δₘ, baseᵣ Δᵣ⟩
+  · intro Δₑ Aₑ Bₑ Δ_ih A_ih B_ih ⟨Δ'ₑ, Δ_w⟩ Δ'ₘ Δ'ᵣ ctor_w
     simp only at ctor_w
     clarifyIndices ctor_w
     inversion ctor_w with Δ_w A_w B_w
     cases A_ih Δ'ᵣ A_w with | mk Aₘ Aᵣ => ?_
     cases B_ih (extᵣ Δ'ᵣ Aᵣ) B_w with | mk Bₘ Bᵣ => ?_ 
-    exact PSigma.mk (piₘ Δ'ₘ Aₘ Bₘ) (piᵣ Δ'ᵣ Aᵣ Bᵣ)
+    exact ⟨piₘ Δ'ₘ Aₘ Bₘ, piᵣ Δ'ᵣ Aᵣ Bᵣ⟩
   · exact (Con_tot Conₘ Tyₘ nilₘ extₘ baseₘ piₘ ⟨Γₑ, Γ_w⟩).2
 
 noncomputable def Con.rec (Γ : Con) : Conₘ Γ :=
