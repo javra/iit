@@ -268,7 +268,7 @@ match ctorType with
               return ← mkMethodApp b' methodRef ctorIHs[1:]
   | none   => let b' ← mkMethodApp b methodRef ctorIHs
               return b' --mkAppM' b' #[_]
-| _ =>return  methodRef
+| _ => return methodRef
 
 def totalityModelTac (sIdx ctorIdx : Nat) (hdArgs : Array HeaderArg') (ctorIHs : Array FVarId)
   (subst : FVarSubst) (mVar : MVarId) :
