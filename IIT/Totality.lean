@@ -288,7 +288,7 @@ withMVarContext mVar do
         subst := subst.append s
         mVar  := mVar'
         pure ()
-  let ctorIHs := ctorIHs.map fun ih => subst.get ih
+  let ctorIHs := ctorIHs.map subst.get
   let mVars ← try apply mVar $ ← mkMethodApp its ctor.type methods[sIdx][ctorIdx] ctorIHs
               catch _ => try apply mVar methods[sIdx][ctorIdx]
                          catch _ => pure [mVar]
@@ -304,7 +304,8 @@ match ctorType with
               let arg2 := mkSnd $ arg
               let methodRef ← mkAppM' relationRef #[arg2]
               return ← mkRelationApp b' methodRef ctorIHs[1:]
-  | none   => let b' ← mkRelationApp b relationRef ctorIHs
+  | none   => let relationRef := mkApp relationRef (mkBVar 0) -- app to ctorArg
+              let b' ← mkRelationApp b relationRef ctorIHs
               pure b'
 | _ => pure relationRef
 
@@ -330,9 +331,10 @@ withMVarContext mVar do
   let mVars ← try apply mVar (mkConst (ctor.name ++ relationSuffix)) 
               catch _ => let relationRef := Lean.mkConst (ctor.name ++ relationSuffix)
                          let relationRef := mkAppN relationRef (motives ++ methods.concat)
-                         let relationApp ← mkRelationApp its ctor.type relationRef ctorIHs
-                         trace[Meta.appBuilder] relationRef
-                         try apply mVar relationApp
+                         try 
+                           let relationApp ← mkRelationApp its ctor.type relationRef ctorIHs
+                           trace[Meta.appBuilder] relationApp
+                           apply mVar relationApp
                          catch _ => pure [mVar]
   return (subst, mVars)
 
@@ -351,7 +353,8 @@ def totalityInnerTac (hIdx sIdx ctorIdx : Nat) (its : List InductiveType) (mVar 
         let (_, invs, mVar) ← Meta.inversion mVar ctorw #["foo", "foo", "foo", "foo"] --TODO cleanup
         withMVarContext mVar do
           let ctorIndices ← collectCtorIndices its ctor.type
-          let ctorIndices := ctorIndices.map fun ci => instantiateRev ci $ ctorArgs.map CtorArg.toExpr
+          let ctorIndices := ctorIndices.map fun ci =>
+            instantiateRev ci $ ctorArgs.map CtorArg.toExpr
           let eqs ← mkEqs ctorIndices $ hdArgs.map HeaderArg'.toErasureOrExt
           let (eqFVars, mVar) ← proveEqs mVar eqs ctorw
           withMVarContext mVar do

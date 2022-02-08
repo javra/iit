@@ -1,7 +1,6 @@
 import IIT
 
 mutual
-
 iit Con : Type
 | nil : Con
 | ext : (Γ : Con) → (A : Ty Γ) → Con
@@ -15,5 +14,4 @@ iit_termination
   | apply Ty.pi.m _ _ (B.ih (Con.ext.r _ _ _ _ _ _ _ (A.ih _ _).2) _).1
   | apply Ty.pi.r (A.r := (A.ih _ _).2) (B.r := (B.ih _ _).2)
   | assumption
-
 end
